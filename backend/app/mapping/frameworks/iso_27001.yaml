@@ -1,0 +1,39 @@
+version: "1.0"
+framework: "ISO/IEC 27001:2022 Annex A"
+framework_key: iso_27001
+source: "https://www.iso.org/standard/27001"
+controls:
+  - id: A.5.7
+    name: "Threat intelligence"
+    url: null
+  - id: A.6.3
+    name: "Information security awareness, education and training"
+    url: null
+  - id: A.8.7
+    name: "Protection against malware"
+    url: null
+  - id: A.8.23
+    name: "Web filtering"
+    url: null
+  - id: A.5.14
+    name: "Information transfer"
+    url: null
+
+mappings:
+  SENDER_REPLYTO_MISMATCH: [A.5.7, A.5.14]
+  DISPLAY_NAME_EMAIL_MISMATCH: [A.5.7, A.5.14]
+  LOOKALIKE_DOMAIN: [A.5.7, A.8.23]
+  PUNYCODE_IDN_DOMAIN: [A.5.7, A.8.23]
+  URGENCY_LANGUAGE: [A.6.3]
+  CREDENTIAL_REQUEST: [A.6.3, A.5.7]
+  PAYMENT_REQUEST: [A.6.3, A.5.7]
+  LINK_DISPLAY_HREF_MISMATCH: [A.8.23]
+  LINK_SHORTENER: [A.8.23]
+  LINK_SUSPICIOUS_TLD: [A.8.23, A.5.7]
+  LINK_IP_LITERAL: [A.8.23]
+  ATTACHMENT_RISKY_EXTENSION: [A.8.7]
+  ATTACHMENT_DOUBLE_EXTENSION: [A.8.7]
+  ATTACHMENT_MACRO_ENABLED: [A.8.7]
+  AUTH_SPF_FAIL: [A.5.7, A.5.14]
+  AUTH_DKIM_FAIL: [A.5.7, A.5.14]
+  AUTH_DMARC_FAIL: [A.5.7, A.5.14]

@@ -1,0 +1,85 @@
+from __future__ import annotations
+
+import pytest
+
+from tests.conftest import FIXTURES_DIR
+
+
+def _all_labeled_filenames(labeled_samples: dict[str, str]) -> list[str]:
+    return sorted(labeled_samples.keys())
+
+
+def test_health_check(client):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_rejects_non_eml_file(client):
+    response = client.post(
+        "/api/analyze", files={"file": ("note.txt", b"hello", "text/plain")}
+    )
+    assert response.status_code == 400
+
+
+def test_rejects_empty_file(client):
+    response = client.post("/api/analyze", files={"file": ("empty.eml", b"", "message/rfc822")})
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "phishing_lookalike_paypal.eml",
+        "phishing_bec_wire_transfer.eml",
+        "phishing_shortener_credential_harvest.eml",
+        "benign_newsletter.eml",
+        "benign_internal_it_notice.eml",
+        "benign_legit_password_reset.eml",
+    ],
+)
+def test_labeled_samples_match_expected_verdict(client, load_eml, labeled_samples, filename):
+    expected_verdict = labeled_samples[filename]
+    raw = load_eml(filename)
+
+    response = client.post(
+        "/api/analyze", files={"file": (filename, raw, "message/rfc822")}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["verdict"] == expected_verdict, (
+        f"{filename}: expected {expected_verdict}, got {body['verdict']} "
+        f"(score={body['score']}, indicators={[i['id'] for i in body['indicators']]})"
+    )
+
+
+def test_malicious_sample_has_populated_framework_mappings(client, load_eml):
+    raw = load_eml("phishing_lookalike_paypal.eml")
+    response = client.post(
+        "/api/analyze", files={"file": ("phishing_lookalike_paypal.eml", raw, "message/rfc822")}
+    )
+    body = response.json()
+    mappings = body["framework_mappings"]
+    for framework_key in ("mitre_attack", "nist_csf", "iso_27001", "soc2"):
+        assert len(mappings[framework_key]) > 0
+
+
+def test_safe_sample_has_no_indicators(client, load_eml):
+    raw = load_eml("benign_newsletter.eml")
+    response = client.post(
+        "/api/analyze", files={"file": ("benign_newsletter.eml", raw, "message/rfc822")}
+    )
+    body = response.json()
+    assert body["indicators"] == []
+    assert body["score"] == 0
+
+
+def test_response_summary_reflects_auth_results(client, load_eml):
+    raw = load_eml("phishing_bec_wire_transfer.eml")
+    response = client.post(
+        "/api/analyze", files={"file": ("phishing_bec_wire_transfer.eml", raw, "message/rfc822")}
+    )
+    body = response.json()
+    assert body["summary"]["auth_results"]["spf"] == "fail"
+    assert body["summary"]["from_address"] == "ceo@acmecorp-executives.com"

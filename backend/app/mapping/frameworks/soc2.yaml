@@ -1,0 +1,36 @@
+version: "1.0"
+framework: "SOC 2 (Trust Services Criteria)"
+framework_key: soc2
+source: "https://www.aicpa-cima.com/resources/landing/system-and-organization-controls-soc-suite-of-services"
+controls:
+  - id: CC2.2
+    name: "The entity communicates information to enable personnel to carry out security responsibilities (incl. phishing awareness)"
+    url: null
+  - id: CC6.1
+    name: "Logical access security measures protect against threats from sources outside system boundaries"
+    url: null
+  - id: CC6.6
+    name: "The entity implements controls to protect against external threats"
+    url: null
+  - id: CC7.2
+    name: "The entity monitors system components for anomalies indicative of malicious acts or security events"
+    url: null
+
+mappings:
+  SENDER_REPLYTO_MISMATCH: [CC6.6, CC7.2]
+  DISPLAY_NAME_EMAIL_MISMATCH: [CC6.6, CC7.2]
+  LOOKALIKE_DOMAIN: [CC6.6, CC7.2]
+  PUNYCODE_IDN_DOMAIN: [CC6.6, CC7.2]
+  URGENCY_LANGUAGE: [CC2.2]
+  CREDENTIAL_REQUEST: [CC2.2, CC6.1]
+  PAYMENT_REQUEST: [CC2.2, CC6.1]
+  LINK_DISPLAY_HREF_MISMATCH: [CC6.6, CC7.2]
+  LINK_SHORTENER: [CC6.6]
+  LINK_SUSPICIOUS_TLD: [CC6.6, CC7.2]
+  LINK_IP_LITERAL: [CC6.6]
+  ATTACHMENT_RISKY_EXTENSION: [CC6.6, CC7.2]
+  ATTACHMENT_DOUBLE_EXTENSION: [CC6.6, CC7.2]
+  ATTACHMENT_MACRO_ENABLED: [CC6.6, CC7.2]
+  AUTH_SPF_FAIL: [CC6.6, CC7.2]
+  AUTH_DKIM_FAIL: [CC6.6, CC7.2]
+  AUTH_DMARC_FAIL: [CC6.6, CC7.2]

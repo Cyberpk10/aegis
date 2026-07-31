@@ -1,0 +1,44 @@
+From: "Acme Weekly" <newsletter@acmeweekly.com>
+To: subscriber@example.com
+Subject: Your Weekly Digest - Top Stories This Week
+Date: Sun, 26 Jul 2026 07:00:00 +0000
+Authentication-Results: mx.example.com; spf=pass smtp.mailfrom=acmeweekly.com; dkim=pass header.d=acmeweekly.com; dmarc=pass header.from=acmeweekly.com
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_NextPart_newsletter_003"
+
+------=_NextPart_newsletter_003
+Content-Type: text/plain; charset="utf-8"
+
+Hi there,
+
+Here is your weekly digest of top stories from Acme Weekly.
+
+1. Five tips for a productive week
+2. Our favorite reader photos
+3. Upcoming community events
+
+Read more on our site: https://acmeweekly.com/digest
+
+Thanks for reading,
+The Acme Weekly Team
+
+You are receiving this because you subscribed to Acme Weekly.
+Unsubscribe: https://acmeweekly.com/unsubscribe
+
+------=_NextPart_newsletter_003
+Content-Type: text/html; charset="utf-8"
+
+<html><body>
+<p>Hi there,</p>
+<p>Here is your weekly digest of top stories from Acme Weekly.</p>
+<ul>
+<li>Five tips for a productive week</li>
+<li>Our favorite reader photos</li>
+<li>Upcoming community events</li>
+</ul>
+<p><a href="https://acmeweekly.com/digest">Read more on our site</a></p>
+<p>Thanks for reading,<br>The Acme Weekly Team</p>
+<p><a href="https://acmeweekly.com/unsubscribe">Unsubscribe</a></p>
+</body></html>
+
+------=_NextPart_newsletter_003--

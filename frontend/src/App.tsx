@@ -1,0 +1,94 @@
+import { useState } from "react";
+import UploadForm from "./components/UploadForm";
+import VerdictBadge from "./components/VerdictBadge";
+import IndicatorList from "./components/IndicatorList";
+import FrameworkMappingPanel from "./components/FrameworkMappingPanel";
+import { postAnalyze, AnalyzeError } from "./api/client";
+import type { AnalyzeResponse } from "./types/analysis";
+
+export default function App() {
+  const [result, setResult] = useState<AnalyzeResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleAnalyze = async (file: File) => {
+    setIsLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const response = await postAnalyze(file);
+      setResult(response);
+    } catch (err) {
+      setError(err instanceof AnalyzeError ? err.message : "Something went wrong while analyzing the email.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <div className="mx-auto max-w-3xl px-4 py-10">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-slate-900">Aegis</h1>
+          <p className="mt-1 text-slate-600">
+            Upload a <code className="rounded bg-slate-200 px-1 py-0.5 text-sm">.eml</code> file for
+            deterministic phishing-indicator analysis.
+          </p>
+        </header>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <UploadForm onSubmit={handleAnalyze} isLoading={isLoading} />
+        </section>
+
+        {error && (
+          <div className="mt-6 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {result && (
+          <div className="mt-8 flex flex-col gap-6">
+            <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <VerdictBadge verdict={result.verdict} score={result.score} />
+              <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-1 text-sm text-slate-600 sm:grid-cols-2">
+                <div>
+                  <dt className="inline font-medium text-slate-700">From: </dt>
+                  <dd className="inline">
+                    {result.summary.from_display} &lt;{result.summary.from_address}&gt;
+                  </dd>
+                </div>
+                <div>
+                  <dt className="inline font-medium text-slate-700">Subject: </dt>
+                  <dd className="inline">{result.summary.subject}</dd>
+                </div>
+                <div>
+                  <dt className="inline font-medium text-slate-700">SPF/DKIM/DMARC: </dt>
+                  <dd className="inline">
+                    {result.summary.auth_results.spf} / {result.summary.auth_results.dkim} /{" "}
+                    {result.summary.auth_results.dmarc}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="inline font-medium text-slate-700">Links / Attachments: </dt>
+                  <dd className="inline">
+                    {result.summary.link_count} / {result.summary.attachment_count}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+
+            <section>
+              <h2 className="mb-3 text-lg font-semibold text-slate-800">Indicators</h2>
+              <IndicatorList indicators={result.indicators} />
+            </section>
+
+            <section>
+              <h2 className="mb-3 text-lg font-semibold text-slate-800">Framework Mapping</h2>
+              <FrameworkMappingPanel frameworkMappings={result.framework_mappings} />
+            </section>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

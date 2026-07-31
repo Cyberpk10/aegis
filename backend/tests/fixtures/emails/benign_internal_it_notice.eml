@@ -1,0 +1,19 @@
+From: "IT Department" <it-notices@example.com>
+To: staff@example.com
+Subject: Scheduled Maintenance This Weekend
+Date: Fri, 24 Jul 2026 16:00:00 +0000
+Authentication-Results: mx.example.com; spf=pass smtp.mailfrom=example.com; dkim=pass header.d=example.com; dmarc=pass header.from=example.com
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Hi team,
+
+Our IT department will be performing scheduled maintenance on internal
+systems this Saturday from 9pm to 11pm. You may experience brief
+interruptions to email and file storage during this window.
+
+No action is required on your part. If you have any questions, reach out
+to the IT helpdesk at extension 4521.
+
+Thanks,
+IT Department

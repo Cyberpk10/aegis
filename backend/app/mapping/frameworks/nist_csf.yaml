@@ -1,0 +1,36 @@
+version: "1.0"
+framework: "NIST Cybersecurity Framework 2.0"
+framework_key: nist_csf
+source: "https://www.nist.gov/cyberframework"
+controls:
+  - id: ID.RA-05
+    name: "Threats, vulnerabilities, likelihoods, and impacts are used to determine risk"
+    url: "https://csrc.nist.gov/pubs/csswp/29/the-nist-cybersecurity-framework-20/final"
+  - id: PR.AT-01
+    name: "Personnel are provided awareness and training on phishing and social engineering"
+    url: "https://csrc.nist.gov/pubs/csswp/29/the-nist-cybersecurity-framework-20/final"
+  - id: DE.CM-01
+    name: "Networks and network services are monitored to find potentially adverse events"
+    url: "https://csrc.nist.gov/pubs/csswp/29/the-nist-cybersecurity-framework-20/final"
+  - id: DE.AE-02
+    name: "Detected events are analyzed to understand attack targets and methods"
+    url: "https://csrc.nist.gov/pubs/csswp/29/the-nist-cybersecurity-framework-20/final"
+
+mappings:
+  SENDER_REPLYTO_MISMATCH: [DE.AE-02, PR.AT-01]
+  DISPLAY_NAME_EMAIL_MISMATCH: [DE.AE-02, PR.AT-01]
+  LOOKALIKE_DOMAIN: [ID.RA-05, DE.AE-02]
+  PUNYCODE_IDN_DOMAIN: [ID.RA-05, DE.AE-02]
+  URGENCY_LANGUAGE: [PR.AT-01]
+  CREDENTIAL_REQUEST: [PR.AT-01, DE.AE-02]
+  PAYMENT_REQUEST: [PR.AT-01, DE.AE-02]
+  LINK_DISPLAY_HREF_MISMATCH: [DE.CM-01, DE.AE-02]
+  LINK_SHORTENER: [DE.CM-01]
+  LINK_SUSPICIOUS_TLD: [DE.CM-01, ID.RA-05]
+  LINK_IP_LITERAL: [DE.CM-01]
+  ATTACHMENT_RISKY_EXTENSION: [DE.CM-01, ID.RA-05]
+  ATTACHMENT_DOUBLE_EXTENSION: [DE.CM-01, ID.RA-05]
+  ATTACHMENT_MACRO_ENABLED: [DE.CM-01, ID.RA-05]
+  AUTH_SPF_FAIL: [ID.RA-05, DE.AE-02]
+  AUTH_DKIM_FAIL: [ID.RA-05, DE.AE-02]
+  AUTH_DMARC_FAIL: [ID.RA-05, DE.AE-02]

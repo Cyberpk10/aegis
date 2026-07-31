@@ -1,0 +1,21 @@
+From: "John Smith (CEO)" <ceo@acmecorp-executives.com>
+Reply-To: j.smith.ceo@quickmail-corp.com
+To: finance@example.com
+Subject: URGENT - Wire Transfer Needed Immediately
+Date: Tue, 28 Jul 2026 14:02:00 +0000
+Authentication-Results: mx.example.com; spf=fail smtp.mailfrom=acmecorp-executives.com; dkim=none; dmarc=fail header.from=acmecorp-executives.com
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Hi,
+
+I need you to process an urgent wire transfer today. This is time-sensitive
+and confidential, so please act immediately and do not discuss this with
+anyone else in the office.
+
+Send the funds to the account details I will provide by phone shortly.
+This needs to happen as soon as possible, before the close of business.
+
+Thanks,
+John
+CEO

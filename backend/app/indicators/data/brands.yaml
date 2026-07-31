@@ -1,0 +1,37 @@
+# Curated list of commonly-impersonated brands and their legitimate domains.
+# Used only to flag look-alike / typosquat / homoglyph domains — Aegis never contacts these
+# domains or any external service.
+version: "1.0"
+brands:
+  - name: PayPal
+    domains: ["paypal.com"]
+  - name: Microsoft
+    domains: ["microsoft.com", "office.com", "live.com", "outlook.com"]
+  - name: Google
+    domains: ["google.com", "gmail.com"]
+  - name: Apple
+    domains: ["apple.com", "icloud.com"]
+  - name: Amazon
+    domains: ["amazon.com"]
+  - name: Bank of America
+    domains: ["bankofamerica.com"]
+  - name: Wells Fargo
+    domains: ["wellsfargo.com"]
+  - name: Chase
+    domains: ["chase.com"]
+  - name: DHL
+    domains: ["dhl.com"]
+  - name: FedEx
+    domains: ["fedex.com"]
+  - name: UPS
+    domains: ["ups.com"]
+  - name: Netflix
+    domains: ["netflix.com"]
+  - name: LinkedIn
+    domains: ["linkedin.com"]
+  - name: Facebook
+    domains: ["facebook.com"]
+  - name: DocuSign
+    domains: ["docusign.com"]
+  - name: IRS
+    domains: ["irs.gov"]

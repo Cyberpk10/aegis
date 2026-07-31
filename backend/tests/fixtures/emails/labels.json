@@ -1,0 +1,8 @@
+{
+  "phishing_lookalike_paypal.eml": "malicious",
+  "phishing_bec_wire_transfer.eml": "malicious",
+  "phishing_shortener_credential_harvest.eml": "malicious",
+  "benign_newsletter.eml": "safe",
+  "benign_internal_it_notice.eml": "safe",
+  "benign_legit_password_reset.eml": "safe"
+}

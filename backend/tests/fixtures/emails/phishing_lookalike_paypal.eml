@@ -1,0 +1,36 @@
+From: "PayPal Support" <service@paypa1.com>
+Reply-To: security-team@secure-mailer.net
+To: victim@example.com
+Subject: Urgent: Verify your account within 24 hours
+Date: Mon, 27 Jul 2026 09:15:00 +0000
+Authentication-Results: mx.example.com; spf=fail smtp.mailfrom=paypa1.com; dkim=fail header.d=paypa1.com; dmarc=fail header.from=paypa1.com
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="----=_NextPart_paypal_001"
+
+------=_NextPart_paypal_001
+Content-Type: text/plain; charset="utf-8"
+
+URGENT: Your PayPal account will be suspended.
+
+We detected unusual sign-in activity on your account. You must verify your
+account within 24 hours or your account will be suspended.
+
+Verify your account now: https://paypa1.com/verify-account
+
+Failure to comply will result in permanent account closure.
+
+- PayPal Security Team
+
+------=_NextPart_paypal_001
+Content-Type: text/html; charset="utf-8"
+
+<html><body>
+<p><b>URGENT:</b> Your PayPal account will be suspended.</p>
+<p>We detected unusual sign-in activity on your account. You must
+<b>verify your account within 24 hours</b> or your account will be suspended.</p>
+<p><a href="https://paypa1.com/verify-account">https://www.paypal.com/verify</a></p>
+<p>Failure to comply will result in permanent account closure.</p>
+<p>- PayPal Security Team</p>
+</body></html>
+
+------=_NextPart_paypal_001--
