@@ -84,3 +84,5 @@ class AnalyzeResponse(BaseModel):
     summary: EmailSummary
     indicators: list[Indicator]
     framework_mappings: dict[str, list[FrameworkControlRef]]
+    analyst_narrative: str | None = None
+    analyst_model: str | None = None

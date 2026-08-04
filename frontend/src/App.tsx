@@ -1,6 +1,7 @@
 import { useState } from "react";
 import UploadForm from "./components/UploadForm";
 import VerdictBadge from "./components/VerdictBadge";
+import AIAnalystSummary from "./components/AIAnalystSummary";
 import IndicatorList from "./components/IndicatorList";
 import FrameworkMappingPanel from "./components/FrameworkMappingPanel";
 import { postAnalyze, AnalyzeError } from "./api/client";
@@ -76,6 +77,8 @@ export default function App() {
                 </div>
               </dl>
             </section>
+
+            <AIAnalystSummary narrative={result.analyst_narrative} model={result.analyst_model} />
 
             <section>
               <h2 className="mb-3 text-lg font-semibold text-slate-800">Indicators</h2>

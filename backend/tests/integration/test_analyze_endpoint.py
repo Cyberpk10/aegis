@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.api.routes import analyze as analyze_module
 from tests.conftest import FIXTURES_DIR
 
 
@@ -83,3 +84,51 @@ def test_response_summary_reflects_auth_results(client, load_eml):
     body = response.json()
     assert body["summary"]["auth_results"]["spf"] == "fail"
     assert body["summary"]["from_address"] == "ceo@acmecorp-executives.com"
+
+
+def test_llm_reasoning_disabled_by_default_omits_narrative(client, load_eml):
+    raw = load_eml("phishing_lookalike_paypal.eml")
+    response = client.post(
+        "/api/analyze", files={"file": ("phishing_lookalike_paypal.eml", raw, "message/rfc822")}
+    )
+    body = response.json()
+    assert body["analyst_narrative"] is None
+    assert body["analyst_model"] is None
+
+
+def test_llm_reasoning_enabled_populates_narrative(client, load_eml, monkeypatch):
+    monkeypatch.setattr(analyze_module.settings, "enable_llm_reasoning", True)
+
+    def fake_narrative(parsed_email, indicators, score, verdict):
+        return "Mocked analyst narrative describing the phishing risk.", "claude-haiku-4-5"
+
+    monkeypatch.setattr(analyze_module, "generate_analyst_narrative", fake_narrative)
+
+    raw = load_eml("phishing_lookalike_paypal.eml")
+    response = client.post(
+        "/api/analyze", files={"file": ("phishing_lookalike_paypal.eml", raw, "message/rfc822")}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["analyst_narrative"] == "Mocked analyst narrative describing the phishing risk."
+    assert body["analyst_model"] == "claude-haiku-4-5"
+    # The rule-based result is untouched by the LLM layer.
+    assert body["verdict"] == "malicious"
+    assert body["score"] == 100
+
+
+def test_llm_reasoning_enabled_without_api_key_returns_null_narrative(client, load_eml, monkeypatch):
+    monkeypatch.setattr(analyze_module.settings, "enable_llm_reasoning", True)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    raw = load_eml("benign_newsletter.eml")
+    response = client.post(
+        "/api/analyze", files={"file": ("benign_newsletter.eml", raw, "message/rfc822")}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["analyst_narrative"] is None
+    assert body["analyst_model"] is None
+    assert body["verdict"] == "safe"

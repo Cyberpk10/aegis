@@ -54,4 +54,6 @@ export interface AnalyzeResponse {
   summary: EmailSummary;
   indicators: Indicator[];
   framework_mappings: Record<string, FrameworkControlRef[]>;
+  analyst_narrative: string | null;
+  analyst_model: string | null;
 }

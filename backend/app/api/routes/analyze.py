@@ -9,6 +9,7 @@ from app.indicators.engine import run_indicators
 from app.mapping.framework_mapper import map_indicators
 from app.models.schemas import AnalyzeResponse, EmailSummary
 from app.parsing.eml_parser import parse_eml
+from app.reasoning.llm_analyst import generate_analyst_narrative
 from app.scoring.risk_engine import fuse
 
 router = APIRouter(prefix="/api", tags=["analyze"])
@@ -34,6 +35,13 @@ async def analyze_email(file: UploadFile) -> AnalyzeResponse:
     score, verdict = fuse(indicators)
     framework_mappings = map_indicators([i.id for i in indicators])
 
+    analyst_narrative: str | None = None
+    analyst_model: str | None = None
+    if settings.enable_llm_reasoning:
+        analyst_narrative, analyst_model = generate_analyst_narrative(
+            parsed, indicators, score, verdict
+        )
+
     summary = EmailSummary(
         from_display=parsed.from_display,
         from_address=parsed.from_address,
@@ -52,4 +60,6 @@ async def analyze_email(file: UploadFile) -> AnalyzeResponse:
         summary=summary,
         indicators=indicators,
         framework_mappings=framework_mappings,
+        analyst_narrative=analyst_narrative,
+        analyst_model=analyst_model,
     )

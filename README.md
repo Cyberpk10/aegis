@@ -21,6 +21,26 @@ make outbound network/DNS calls. SPF/DKIM/DMARC results are parsed from the emai
 - `POST /api/analyze` returns verdict, score, indicators, and framework mappings.
 - pytest suite with labeled phishing/benign sample `.eml` files.
 
+## Milestone 2 scope (in progress)
+
+- Optional LLM analyst narrative: a short (2-4 sentence) explanation of the already-computed
+  rule-based verdict, generated server-side by a Haiku-class Claude model. The LLM only explains
+  the existing score/verdict — it never recomputes or overrides them. Off by default.
+
+### Enabling the analyst narrative
+
+Set these environment variables before starting the backend:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ENABLE_LLM_REASONING` | `false` | Set to `true` to turn on the LLM analyst narrative. |
+| `ANTHROPIC_API_KEY` | (unset) | Required when the feature is enabled. Never hardcode this. |
+| `ANTHROPIC_MODEL` | `claude-haiku-4-5` | Overrides the model used for the narrative. |
+
+If the flag is on but the key is missing, or the API call fails/times out, `analyst_narrative` is
+returned as `null` and the full rule-based result is still returned — the feature degrades
+gracefully and never blocks analysis.
+
 ## Backend
 
 Requires Python 3.11+.
