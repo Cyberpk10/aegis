@@ -50,6 +50,47 @@ gracefully and never blocks analysis. The pytest suite pins `enable_llm_reasonin
 every test regardless of your local `.env`, so it stays offline and deterministic no matter what
 you have configured for manual testing.
 
+## Stage 2 scope — persistence & case management
+
+Every `POST /api/analyze` now persists its result as a **case** so past analyses can be browsed
+later. Two design choices worth calling out:
+
+- **Data minimization**: the `cases` table stores the analysis result (verdict, score,
+  indicators, framework mappings, analyst narrative) but never the raw email body/headers. The
+  uploaded `.eml` is written to disk (`RAW_EMAIL_STORAGE_DIR`, default `backend/data/raw_emails/`)
+  under its case UUID, and only that path is stored in the DB. Files older than
+  `RAW_EMAIL_RETENTION_DAYS` (default 30) are purged best-effort at backend startup.
+- **SQLite by default, Postgres for real deployments**: `DATABASE_URL` defaults to a local SQLite
+  file so `uvicorn` and `pytest` both run with zero setup. Point it at Postgres (e.g. the
+  docker-compose service below) for a real deployment.
+
+### Endpoints
+
+| Method & path | Purpose |
+| --- | --- |
+| `POST /api/analyze` | Analyzes a `.eml` and now also persists + returns a case `id`. |
+| `GET /api/cases` | Paginated case list. Filters: `verdict`, `date_from`, `date_to`. |
+| `GET /api/cases/{id}` | Full persisted case detail. |
+| `DELETE /api/cases/{id}` | Deletes the case row and its stored raw `.eml`. |
+
+### Postgres via Docker
+
+```sh
+docker compose up -d                 # starts Postgres on localhost:5432
+cd backend
+# in .env: DATABASE_URL=postgresql+psycopg://aegis:aegis@localhost:5432/aegis
+alembic upgrade head
+```
+
+Without Docker, the backend falls back to a local `aegis.db` SQLite file and creates the schema
+automatically at startup (no `alembic upgrade` needed for that path).
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | `sqlite:///./aegis.db` | SQLAlchemy DB URL. |
+| `RAW_EMAIL_STORAGE_DIR` | `./data/raw_emails` | Where raw `.eml` uploads are stored. |
+| `RAW_EMAIL_RETENTION_DAYS` | `30` | Days a raw `.eml` is kept before purge. |
+
 ## Backend
 
 Requires Python 3.11+.
@@ -64,6 +105,9 @@ uvicorn app.main:app --reload
 
 `POST http://localhost:8000/api/analyze` with a multipart `file` field containing a `.eml`.
 
+The test suite pins each test to a fresh in-memory SQLite database (see
+`backend/tests/conftest.py`) — it never touches Postgres or your local `aegis.db`.
+
 ## Frontend
 
 ```sh
@@ -72,4 +116,6 @@ npm install
 npm run dev
 ```
 
-The dev server proxies `/api` to `http://localhost:8000` (see `vite.config.ts`).
+The dev server proxies `/api` to `http://localhost:8000` (see `vite.config.ts`). The **Cases** tab
+lists past analyses (verdict, score, sender, date), with filtering, pagination, and a click-through
+detail view.

@@ -49,9 +49,42 @@ export interface FrameworkControlRef {
 }
 
 export interface AnalyzeResponse {
+  id: string;
+  created_at: string;
   verdict: Verdict;
   score: number;
   summary: EmailSummary;
+  indicators: Indicator[];
+  framework_mappings: Record<string, FrameworkControlRef[]>;
+  analyst_narrative: string | null;
+  analyst_model: string | null;
+}
+
+export interface CaseSummary {
+  id: string;
+  created_at: string;
+  filename: string;
+  verdict: Verdict;
+  score: number;
+  from_addr: string | null;
+  subject: string | null;
+}
+
+export interface CaseListResponse {
+  items: CaseSummary[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface CaseDetail {
+  id: string;
+  created_at: string;
+  filename: string;
+  verdict: Verdict;
+  score: number;
+  from_addr: string | null;
+  subject: string | null;
   indicators: Indicator[];
   framework_mappings: Record<string, FrameworkControlRef[]>;
   analyst_narrative: string | null;

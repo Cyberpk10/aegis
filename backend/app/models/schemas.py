@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -79,6 +81,8 @@ class FrameworkControlRef(BaseModel):
 
 
 class AnalyzeResponse(BaseModel):
+    id: UUID
+    created_at: datetime
     verdict: Verdict
     score: int
     summary: EmailSummary
@@ -86,3 +90,43 @@ class AnalyzeResponse(BaseModel):
     framework_mappings: dict[str, list[FrameworkControlRef]]
     analyst_narrative: str | None = None
     analyst_model: str | None = None
+
+
+class CaseSummary(BaseModel):
+    """A single row in the paginated case list."""
+
+    id: UUID
+    created_at: datetime
+    filename: str
+    verdict: Verdict
+    score: int
+    from_addr: str | None = None
+    subject: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class CaseListResponse(BaseModel):
+    items: list[CaseSummary]
+    total: int
+    page: int
+    page_size: int
+
+
+class CaseDetailResponse(BaseModel):
+    """Everything persisted for a case, except the raw-email disk pointer (not exposed
+    via the API)."""
+
+    id: UUID
+    created_at: datetime
+    filename: str
+    verdict: Verdict
+    score: int
+    from_addr: str | None = None
+    subject: str | None = None
+    indicators: list[Indicator]
+    framework_mappings: dict[str, list[FrameworkControlRef]]
+    analyst_narrative: str | None = None
+    analyst_model: str | None = None
+
+    model_config = {"from_attributes": True}

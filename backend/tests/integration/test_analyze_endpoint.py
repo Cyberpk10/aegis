@@ -132,3 +132,27 @@ def test_llm_reasoning_enabled_without_api_key_returns_null_narrative(client, lo
     assert body["analyst_narrative"] is None
     assert body["analyst_model"] is None
     assert body["verdict"] == "safe"
+
+
+def test_analyze_persists_a_retrievable_case(client, load_eml):
+    raw = load_eml("phishing_lookalike_paypal.eml")
+    analyze_response = client.post(
+        "/api/analyze", files={"file": ("phishing_lookalike_paypal.eml", raw, "message/rfc822")}
+    )
+    assert analyze_response.status_code == 200
+    analyze_body = analyze_response.json()
+    assert analyze_body["id"]
+    assert analyze_body["created_at"]
+
+    case_response = client.get(f"/api/cases/{analyze_body['id']}")
+    assert case_response.status_code == 200
+    case_body = case_response.json()
+
+    assert case_body["id"] == analyze_body["id"]
+    assert case_body["verdict"] == analyze_body["verdict"]
+    assert case_body["score"] == analyze_body["score"]
+    assert case_body["indicators"] == analyze_body["indicators"]
+    assert case_body["framework_mappings"] == analyze_body["framework_mappings"]
+    assert case_body["filename"] == "phishing_lookalike_paypal.eml"
+    assert case_body["from_addr"] == analyze_body["summary"]["from_address"]
+    assert case_body["subject"] == analyze_body["summary"]["subject"]

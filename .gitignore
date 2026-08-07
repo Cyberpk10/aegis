@@ -24,3 +24,7 @@ dist/
 # Env
 .env
 .env.local
+
+# Local persistence (Stage 2)
+backend/aegis.db
+backend/data/

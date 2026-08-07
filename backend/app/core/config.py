@@ -39,5 +39,19 @@ class Settings:
         default_factory=lambda: os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5")
     )
 
+    # Persistence (M3/Stage 2). SQLite by default so the app and test suite run with zero
+    # setup; point DATABASE_URL at the docker-compose Postgres for a real deployment.
+    database_url: str = field(
+        default_factory=lambda: os.environ.get("DATABASE_URL", "sqlite:///./aegis.db")
+    )
+    # Raw .eml files are stored on disk (never in the DB) and purged after this many days —
+    # only a path pointer lives in the `cases` table.
+    raw_email_storage_dir: str = field(
+        default_factory=lambda: os.environ.get("RAW_EMAIL_STORAGE_DIR", "./data/raw_emails")
+    )
+    raw_email_retention_days: int = field(
+        default_factory=lambda: int(os.environ.get("RAW_EMAIL_RETENTION_DAYS", "30"))
+    )
+
 
 settings = Settings()
