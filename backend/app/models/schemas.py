@@ -113,6 +113,22 @@ class CaseListResponse(BaseModel):
     page_size: int
 
 
+class LabelRequest(BaseModel):
+    analyst_verdict: Verdict
+    note: str | None = None
+
+
+class LabelResponse(BaseModel):
+    id: UUID
+    case_id: UUID
+    analyst_verdict: Verdict
+    note: str | None = None
+    labeled_by: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class CaseDetailResponse(BaseModel):
     """Everything persisted for a case, except the raw-email disk pointer (not exposed
     via the API)."""
@@ -128,5 +144,6 @@ class CaseDetailResponse(BaseModel):
     framework_mappings: dict[str, list[FrameworkControlRef]]
     analyst_narrative: str | None = None
     analyst_model: str | None = None
+    latest_label: LabelResponse | None = None
 
     model_config = {"from_attributes": True}

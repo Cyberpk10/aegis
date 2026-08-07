@@ -77,6 +77,15 @@ export interface CaseListResponse {
   page_size: number;
 }
 
+export interface Label {
+  id: string;
+  case_id: string;
+  analyst_verdict: Verdict;
+  note: string | null;
+  labeled_by: string;
+  created_at: string;
+}
+
 export interface CaseDetail {
   id: string;
   created_at: string;
@@ -89,4 +98,5 @@ export interface CaseDetail {
   framework_mappings: Record<string, FrameworkControlRef[]>;
   analyst_narrative: string | null;
   analyst_model: string | null;
+  latest_label: Label | null;
 }

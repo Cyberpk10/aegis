@@ -53,5 +53,11 @@ class Settings:
         default_factory=lambda: int(os.environ.get("RAW_EMAIL_RETENTION_DAYS", "30"))
     )
 
+    # Analyst feedback loop (M4/Stage 3). Stub identity for "who labeled this" — an
+    # X-Analyst-Id request header overrides this per-request. Not real auth.
+    default_analyst_id: str = field(
+        default_factory=lambda: os.environ.get("DEFAULT_ANALYST_ID", "anonymous-analyst")
+    )
+
 
 settings = Settings()

@@ -29,18 +29,26 @@ def _deterministic_llm_settings(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
 
-@pytest.fixture(autouse=True)
-def _test_database(monkeypatch, tmp_path):
-    """Give every test a fresh in-memory SQLite database, regardless of a developer's
-    local DATABASE_URL — the suite must stay offline and isolated. Also redirects raw
-    email storage to a per-test tmp_path so tests never touch the real data/ dir."""
+@pytest.fixture()
+def _test_engine():
+    """A fresh in-memory SQLite database per test, regardless of a developer's local
+    DATABASE_URL — the suite must stay offline and isolated."""
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
     Base.metadata.create_all(bind=engine)
-    TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    yield engine
+    Base.metadata.drop_all(bind=engine)
+    engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def _test_database(monkeypatch, tmp_path, _test_engine):
+    """Point the app's get_db dependency at _test_engine, and redirect raw email storage
+    to a per-test tmp_path so tests never touch the real data/ dir."""
+    TestingSessionLocal = sessionmaker(bind=_test_engine, autoflush=False, autocommit=False)
 
     def _override_get_db():
         db = TestingSessionLocal()
@@ -55,8 +63,19 @@ def _test_database(monkeypatch, tmp_path):
     yield
 
     app.dependency_overrides.pop(get_db, None)
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
+
+
+@pytest.fixture()
+def db_session(_test_engine):
+    """A plain SQLAlchemy session bound to the same test database the app is using, for
+    tests that need to assert on rows directly (e.g. label history) rather than through
+    an API response shape."""
+    TestingSessionLocal = sessionmaker(bind=_test_engine, autoflush=False, autocommit=False)
+    session = TestingSessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
 
 
 @pytest.fixture()

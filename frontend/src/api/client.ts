@@ -1,4 +1,4 @@
-import type { AnalyzeResponse, CaseDetail, CaseListResponse, Verdict } from "../types/analysis";
+import type { AnalyzeResponse, CaseDetail, CaseListResponse, Label, Verdict } from "../types/analysis";
 
 export class AnalyzeError extends Error {}
 
@@ -59,4 +59,21 @@ export async function deleteCase(id: string): Promise<void> {
   if (!response.ok && response.status !== 204) {
     return parseErrorOrThrow(response);
   }
+}
+
+export interface SubmitLabelParams {
+  analyst_verdict: Verdict;
+  note?: string;
+}
+
+export async function submitLabel(caseId: string, params: SubmitLabelParams): Promise<Label> {
+  const response = await fetch(`/api/cases/${caseId}/label`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
 }

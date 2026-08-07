@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.analyze import router as analyze_router
 from app.api.routes.cases import router as cases_router
+from app.api.routes.labels import router as labels_router
 from app.core.config import settings
 from app.db.session import Base, engine
 from app.storage.raw_email_store import purge_expired
@@ -41,6 +42,7 @@ app.add_middleware(
 
 app.include_router(analyze_router)
 app.include_router(cases_router)
+app.include_router(labels_router)
 
 
 @app.get("/health")

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import JSON, DateTime, Integer, String, Text, Uuid, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, Uuid, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
 
@@ -35,3 +35,30 @@ class Case(Base):
     analyst_narrative: Mapped[str | None] = mapped_column(Text, nullable=True)
     analyst_model: Mapped[str | None] = mapped_column(String, nullable=True)
     raw_email_path: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    labels: Mapped[list["Label"]] = relationship(
+        back_populates="case", cascade="all, delete-orphan"
+    )
+
+
+class Label(Base):
+    """An analyst's verdict on a case. Rows are append-only — relabeling inserts a new
+    row rather than updating the old one, so the full labeling history is preserved."""
+
+    __tablename__ = "labels"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    case_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("cases.id", ondelete="CASCADE"), nullable=False
+    )
+    analyst_verdict: Mapped[str] = mapped_column(String, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    labeled_by: Mapped[str] = mapped_column(String, nullable=False)
+    # Python-side default (not server_default=func.now()): SQLite's CURRENT_TIMESTAMP only
+    # has 1-second resolution, and relabeling the same case in quick succession needs
+    # unambiguous ordering to determine the "latest" label.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+    case: Mapped[Case] = relationship(back_populates="labels")
