@@ -5,6 +5,14 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
+from dotenv import load_dotenv
+
+# Loads variables from a local .env file (if present) into os.environ. Real
+# environment variables already set (shell, CI) always take precedence —
+# load_dotenv() defaults to override=False. .env itself is gitignored; see
+# .env.example for the documented set of variables.
+load_dotenv()
+
 _TRUTHY = {"1", "true", "yes", "on"}
 
 

@@ -29,7 +29,14 @@ make outbound network/DNS calls. SPF/DKIM/DMARC results are parsed from the emai
 
 ### Enabling the analyst narrative
 
-Set these environment variables before starting the backend:
+```sh
+cd backend
+cp .env.example .env   # then edit .env and paste in a real ANTHROPIC_API_KEY
+```
+
+`backend/app/core/config.py` loads `.env` automatically (via `python-dotenv`) at startup — no
+manual `export`/`source` needed. `.env` is gitignored; `.env.example` documents the variables and
+is committed. Real environment variables (shell, CI) always take precedence over `.env`.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -39,7 +46,9 @@ Set these environment variables before starting the backend:
 
 If the flag is on but the key is missing, or the API call fails/times out, `analyst_narrative` is
 returned as `null` and the full rule-based result is still returned — the feature degrades
-gracefully and never blocks analysis.
+gracefully and never blocks analysis. The pytest suite pins `enable_llm_reasoning` to `false` for
+every test regardless of your local `.env`, so it stays offline and deterministic no matter what
+you have configured for manual testing.
 
 ## Backend
 
