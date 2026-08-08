@@ -1,0 +1,23 @@
+[project]
+name = "aegis-ml"
+version = "0.1.0"
+description = "Aegis M3 — ML training corpus assembly and (future) model training. Not imported by the runtime backend."
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2",
+    "pyarrow>=16.0",
+    "scikit-learn>=1.5",
+    "requests>=2.32",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["aegis_ml*"]

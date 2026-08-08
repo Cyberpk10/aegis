@@ -28,3 +28,7 @@ dist/
 # Local persistence (Stage 2)
 backend/aegis.db
 backend/data/
+
+# ML training corpus / artifacts (M3 Stage 1) — never commit raw datasets or models
+ml/data/
+ml/models/
