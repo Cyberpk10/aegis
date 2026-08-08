@@ -59,5 +59,22 @@ class Settings:
         default_factory=lambda: os.environ.get("DEFAULT_ANALYST_ID", "anonymous-analyst")
     )
 
+    # Audit Mode (M4 Stage 1). Generated evidence-pack PDF/JSON files live here — under
+    # backend/data/ by default, already covered by .gitignore.
+    audit_report_storage_dir: str = field(
+        default_factory=lambda: os.environ.get("AUDIT_REPORT_STORAGE_DIR", "./data/audit_reports")
+    )
+
+    # Closed-loop remediation + targeted training (M4 Stage 3). A recipient hit by this
+    # many non-safe cases gets flagged for a stored micro-training recommendation.
+    target_training_threshold: int = field(
+        default_factory=lambda: int(os.environ.get("TARGET_TRAINING_THRESHOLD", "3"))
+    )
+
+    # Natural-language threat copilot (M4 Stage 4). Off by default — separate from
+    # enable_llm_reasoning since this is a broader, cross-case data-access surface than
+    # the single-email analyst narrative, and a deployer should opt into it independently.
+    enable_copilot: bool = field(default_factory=lambda: _env_bool("ENABLE_COPILOT", False))
+
 
 settings = Settings()

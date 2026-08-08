@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.indicators import (
+    ai_authored,
     attachment_risk,
     auth_failures,
     credential_payment,
@@ -23,6 +24,7 @@ _RULES: list[IndicatorRule] = [
     link_analysis.evaluate,
     attachment_risk.evaluate,
     auth_failures.evaluate,
+    ai_authored.evaluate,
 ]
 
 

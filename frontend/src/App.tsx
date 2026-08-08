@@ -1,14 +1,18 @@
 import { useState } from "react";
 import UploadForm from "./components/UploadForm";
 import VerdictBadge from "./components/VerdictBadge";
+import AiAuthoredFlag from "./components/AiAuthoredFlag";
 import AIAnalystSummary from "./components/AIAnalystSummary";
 import IndicatorList from "./components/IndicatorList";
 import FrameworkMappingPanel from "./components/FrameworkMappingPanel";
 import CasesView from "./components/CasesView";
+import DashboardView from "./components/dashboard/DashboardView";
+import AuditView from "./components/audit/AuditView";
+import CopilotView from "./components/copilot/CopilotView";
 import { postAnalyze, AnalyzeError } from "./api/client";
 import type { AnalyzeResponse } from "./types/analysis";
 
-type Tab = "analyze" | "cases";
+type Tab = "analyze" | "cases" | "dashboard" | "audit" | "copilot";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("analyze");
@@ -32,7 +36,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-3xl px-4 py-10">
+      <div
+        className={`mx-auto px-4 py-10 ${
+          tab === "dashboard" || tab === "audit" || tab === "copilot" ? "max-w-6xl" : "max-w-3xl"
+        }`}
+      >
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900">Aegis</h1>
           <p className="mt-1 text-slate-600">
@@ -40,7 +48,7 @@ export default function App() {
             deterministic phishing-indicator analysis.
           </p>
           <nav className="mt-4 flex gap-1 border-b border-slate-200">
-            {(["analyze", "cases"] as const).map((t) => (
+            {(["analyze", "cases", "dashboard", "audit", "copilot"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -57,6 +65,12 @@ export default function App() {
         </header>
 
         {tab === "cases" && <CasesView />}
+
+        {tab === "dashboard" && <DashboardView />}
+
+        {tab === "audit" && <AuditView />}
+
+        {tab === "copilot" && <CopilotView />}
 
         {tab === "analyze" && (
           <>
@@ -100,6 +114,8 @@ export default function App() {
                     </div>
                   </dl>
                 </section>
+
+                <AiAuthoredFlag indicators={result.indicators} />
 
                 <AIAnalystSummary narrative={result.analyst_narrative} model={result.analyst_model} />
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -147,3 +148,244 @@ class CaseDetailResponse(BaseModel):
     latest_label: LabelResponse | None = None
 
     model_config = {"from_attributes": True}
+
+
+class PeriodCount(BaseModel):
+    """A count for the current period alongside the prior period-of-equal-length, for
+    the dashboard's period-over-period deltas."""
+
+    current: int
+    previous: int
+    delta: int
+    delta_pct: float | None = None
+
+
+class VerdictCounts(BaseModel):
+    malicious: PeriodCount
+    suspicious: PeriodCount
+    safe: PeriodCount
+
+
+class TopIndicator(BaseModel):
+    indicator_id: str
+    title: str
+    category: str
+    severity: Severity
+    count: int
+
+
+class MonthlyThreatCount(BaseModel):
+    month: str
+    count: int
+
+
+class FrameworkCoverage(BaseModel):
+    framework_key: str
+    framework_name: str
+    total_controls: int
+    covered_controls: int
+    coverage_pct: float
+
+
+class AgreementRate(BaseModel):
+    rate_pct: float | None = None
+    labeled_count: int
+    agreeing_count: int
+
+
+class KRIs(BaseModel):
+    malicious_catch_rate_pct: float | None = None
+    false_positive_rate_pct: float | None = None
+    mean_unlabeled_backlog_days: float | None = None
+    unlabeled_count: int
+    labeled_count: int
+
+
+class DashboardSummaryResponse(BaseModel):
+    period_start: datetime
+    period_end: datetime
+    previous_period_start: datetime
+    previous_period_end: datetime
+    total_analyzed: PeriodCount
+    verdict_counts: VerdictCounts
+    analyst_agreement: AgreementRate
+    top_indicators: list[TopIndicator]
+    monthly_threat_trend: list[MonthlyThreatCount]
+    kris: KRIs
+    framework_coverage: list[FrameworkCoverage]
+
+
+class AuditFramework(str, Enum):
+    NIST = "nist"
+    ISO = "iso"
+    SOC2 = "soc2"
+    MITRE = "mitre"
+
+
+class AuditCaseRef(BaseModel):
+    id: UUID
+    verdict: Verdict
+    created_at: datetime
+
+
+class AuditControlEvidence(BaseModel):
+    control_id: str
+    control_name: str
+    detection_count: int
+    sample_cases: list[AuditCaseRef]
+    operating: bool
+
+
+class AuditEvidenceResponse(BaseModel):
+    framework_key: str
+    framework_name: str
+    period_start: datetime
+    period_end: datetime
+    controls: list[AuditControlEvidence]
+    total_controls: int
+    operating_controls: int
+
+
+class AuditReportRequest(BaseModel):
+    framework: AuditFramework
+    date_from: datetime | None = None
+    date_to: datetime | None = None
+
+
+class AuditReportSummary(BaseModel):
+    id: UUID
+    created_at: datetime
+    framework_key: str
+    framework_name: str
+    period_start: datetime
+    period_end: datetime
+    total_controls: int
+    operating_controls: int
+    total_supporting_cases: int
+
+
+class AuditReportListResponse(BaseModel):
+    items: list[AuditReportSummary]
+    total: int
+    page: int
+    page_size: int
+
+
+class RemediationStatus(str, Enum):
+    RECOMMENDED = "recommended"
+    APPROVED = "approved"
+    DONE = "done"
+
+
+class RemediationControlRef(BaseModel):
+    framework_key: str
+    control_id: str
+    control_name: str
+
+
+class PlaybookStepResponse(BaseModel):
+    step_id: str
+    title: str
+    description: str
+    category: str
+    related_indicator_ids: list[str]
+    control_refs: list[RemediationControlRef]
+    status: RemediationStatus
+    actor: str | None = None
+    note: str | None = None
+    acted_at: datetime | None = None
+
+
+class RemediationPlaybookResponse(BaseModel):
+    case_id: UUID
+    generated_at: datetime
+    steps: list[PlaybookStepResponse]
+
+
+class RemediationActionRequest(BaseModel):
+    status: Literal["approved", "done"]
+    note: str | None = None
+
+
+class RemediationActionResponse(BaseModel):
+    id: UUID
+    case_id: UUID
+    step_id: str
+    status: str
+    actor: str
+    note: str | None = None
+    created_at: datetime
+
+
+class TargetSummaryResponse(BaseModel):
+    recipient: str
+    hit_count: int
+    flagged_for_training: bool
+    top_indicator_id: str | None = None
+    top_indicator_title: str | None = None
+    recommendation: str | None = None
+    sample_case_ids: list[UUID]
+    first_flagged_at: datetime | None = None
+
+
+class TargetsListResponse(BaseModel):
+    threshold: int
+    targets: list[TargetSummaryResponse]
+
+
+class CopilotQueryRequest(BaseModel):
+    question: str
+
+
+class CopilotTemplateUsed(BaseModel):
+    template: str
+    params: dict
+
+
+class CopilotQueryResponse(BaseModel):
+    question: str
+    narrative: str
+    template_used: CopilotTemplateUsed
+    result: dict
+    generated_at: datetime
+
+
+class RiskAttackTypeBreakdown(BaseModel):
+    attack_type: str
+    count: int
+    avg_loss_usd: float
+    prevention_weight: float
+    subtotal_usd: float
+
+
+class RiskExposureAvoided(BaseModel):
+    total_usd: float
+    by_attack_type: list[RiskAttackTypeBreakdown]
+
+
+class RiskResidualRisk(BaseModel):
+    total_usd: float
+    false_negative_count: int
+    by_attack_type: list[RiskAttackTypeBreakdown]
+    note: str
+
+
+class RiskDetectionCounts(BaseModel):
+    malicious: int
+    suspicious: int
+    safe: int
+
+
+class RiskAssumption(BaseModel):
+    value: float
+    source: str
+
+
+class FinancialRiskResponse(BaseModel):
+    period_start: datetime
+    period_end: datetime
+    exposure_avoided: RiskExposureAvoided
+    residual_risk: RiskResidualRisk
+    detection_counts: RiskDetectionCounts
+    assumptions: dict[str, RiskAssumption]
+    generated_at: datetime

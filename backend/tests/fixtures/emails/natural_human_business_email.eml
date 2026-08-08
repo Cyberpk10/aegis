@@ -1,0 +1,18 @@
+From: "Mike Chen" <mike.chen@example-corp.com>
+To: sarah.jones@example-corp.com
+Subject: Vendor contract - almost there
+Date: Wed, 05 Aug 2026 11:20:00 +0000
+Authentication-Results: mx.example.com; spf=pass smtp.mailfrom=example-corp.com; dkim=pass header.d=example-corp.com; dmarc=pass header.from=example-corp.com
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Hey Sarah,
+
+Quick update - I finally got the vendor contract sorted out! Took forever but we're good to go now.
+
+Can you take a look at the attached doc when you get a sec? No rush, just want to make sure I didn't miss anything before I send it over.
+
+Also, don't forget we've got that team lunch on Friday. Should be fun - it's been a while since we all got together.
+
+Thanks!
+Mike

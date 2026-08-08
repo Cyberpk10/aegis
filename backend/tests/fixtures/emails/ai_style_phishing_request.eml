@@ -1,0 +1,18 @@
+From: "IT Support" <support@company-portal-service.com>
+To: employee@example.com
+Subject: Important: Account Verification Required
+Date: Wed, 05 Aug 2026 09:15:00 +0000
+Authentication-Results: mx.example.com; spf=pass smtp.mailfrom=company-portal-service.com; dkim=pass header.d=company-portal-service.com; dmarc=pass header.from=company-portal-service.com
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Dear Valued Employee,
+
+I hope this email finds you well today. We are writing to inform you about an important update to our account security protocols. Please take a moment to review this message carefully before you continue with your normal work today.
+
+As part of this update, we kindly ask that you verify your account credentials at your earliest convenience. Please visit the secure portal at http://company-portal-service.com/verify to confirm your login information right away.
+
+Should you have any questions regarding this update, please do not hesitate to contact our support team directly. Thank you for your understanding and continued cooperation as we work to protect our systems.
+
+Best regards,
+IT Support Team

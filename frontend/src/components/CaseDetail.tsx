@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { deleteCase, getCase, submitLabel } from "../api/client";
 import type { CaseDetail as CaseDetailType, Verdict } from "../types/analysis";
+import AiAuthoredFlag from "./AiAuthoredFlag";
 import AIAnalystSummary from "./AIAnalystSummary";
 import FrameworkMappingPanel from "./FrameworkMappingPanel";
 import IndicatorList from "./IndicatorList";
+import ResponsePlaybookPanel from "./ResponsePlaybookPanel";
 import VerdictBadge from "./VerdictBadge";
 
 interface CaseDetailProps {
@@ -175,7 +177,11 @@ export default function CaseDetail({ caseId, onBack, onDeleted }: CaseDetailProp
             {labelError && <p className="mt-2 text-sm text-red-700">{labelError}</p>}
           </section>
 
+          <AiAuthoredFlag indicators={caseData.indicators} />
+
           <AIAnalystSummary narrative={caseData.analyst_narrative} model={caseData.analyst_model} />
+
+          <ResponsePlaybookPanel caseId={caseData.id} />
 
           <section>
             <h2 className="mb-3 text-lg font-semibold text-slate-800">Indicators</h2>

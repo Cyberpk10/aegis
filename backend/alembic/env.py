@@ -6,7 +6,13 @@ from sqlalchemy import pool
 from alembic import context
 
 from app.core.config import settings
-from app.db.models import Case, Label  # noqa: F401 - imports register models on Base.metadata
+from app.db.models import (  # noqa: F401 - imports register models on Base.metadata
+    AuditReport,
+    Case,
+    Label,
+    RemediationAction,
+    TrainingRecommendation,
+)
 from app.db.session import Base
 
 # this is the Alembic Config object, which provides

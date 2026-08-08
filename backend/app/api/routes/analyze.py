@@ -76,6 +76,7 @@ async def analyze_email(file: UploadFile, db: Session = Depends(get_db)) -> Anal
         score=score,
         from_addr=parsed.from_address,
         subject=parsed.subject,
+        to_addresses=parsed.to_addresses,
         indicators=indicators_json,
         framework_mappings=framework_mappings_json,
         analyst_narrative=analyst_narrative,

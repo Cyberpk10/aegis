@@ -1,0 +1,18 @@
+From: "People Operations" <people-ops@example-corp.com>
+To: all-staff@example-corp.com
+Subject: Update on Our Remote Work Policy
+Date: Wed, 05 Aug 2026 10:00:00 +0000
+Authentication-Results: mx.example.com; spf=pass smtp.mailfrom=example-corp.com; dkim=pass header.d=example-corp.com; dmarc=pass header.from=example-corp.com
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Dear Team,
+
+I hope this message finds you very well today. I wanted to reach out to share an update regarding our remote work policy for the upcoming quarter. This change reflects feedback we have gathered from across the organization over the past several months.
+
+Moving forward, employees will have the option to work remotely up to three days each week. Please review the updated guidelines on the internal portal at your earliest convenience so you understand how this applies.
+
+Should you have any questions regarding this policy change, please do not hesitate to contact your manager today. Thank you for your continued flexibility and dedication as we roll out this update together.
+
+Best regards,
+The People Operations Team

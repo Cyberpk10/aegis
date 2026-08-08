@@ -43,3 +43,10 @@ mappings:
   AUTH_SPF_FAIL: [T1656]
   AUTH_DKIM_FAIL: [T1656]
   AUTH_DMARC_FAIL: [T1656]
+  # AI_AUTHORED_SUSPECTED is a stylometric/authorship heuristic (see
+  # backend/app/indicators/ai_authored.py), not a literal MITRE technique match — there is
+  # no dedicated ATT&CK technique for "the lure text was LLM-generated." It's mapped to the
+  # T1566 phishing family because AI-generated fluent text is primarily used to scale and
+  # polish spearphishing/phishing lures (T1566, T1566.002), which is the attacker behavior
+  # this signal is corroborating evidence for.
+  AI_AUTHORED_SUSPECTED: [T1566, T1566.002]

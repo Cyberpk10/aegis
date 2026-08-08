@@ -1,4 +1,19 @@
-import type { AnalyzeResponse, CaseDetail, CaseListResponse, Label, Verdict } from "../types/analysis";
+import type {
+  AnalyzeResponse,
+  AuditEvidenceResponse,
+  AuditFrameworkAlias,
+  AuditReportListResponse,
+  AuditReportSummary,
+  CaseDetail,
+  CaseListResponse,
+  CopilotQueryResponse,
+  DashboardSummary,
+  FinancialRiskResponse,
+  Label,
+  RemediationPlaybook,
+  TargetsListResponse,
+  Verdict,
+} from "../types/analysis";
 
 export class AnalyzeError extends Error {}
 
@@ -71,6 +86,175 @@ export async function submitLabel(caseId: string, params: SubmitLabelParams): Pr
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
+  });
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export interface GetDashboardSummaryParams {
+  dateFrom?: string;
+  dateTo?: string;
+  topN?: number;
+}
+
+export async function getDashboardSummary(
+  params: GetDashboardSummaryParams = {}
+): Promise<DashboardSummary> {
+  const query = new URLSearchParams();
+  if (params.dateFrom) query.set("date_from", params.dateFrom);
+  if (params.dateTo) query.set("date_to", params.dateTo);
+  if (params.topN) query.set("top_n", String(params.topN));
+
+  const response = await fetch(`/api/dashboard/summary?${query.toString()}`);
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export interface GetAuditEvidenceParams {
+  framework: AuditFrameworkAlias;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export async function getAuditEvidence(
+  params: GetAuditEvidenceParams
+): Promise<AuditEvidenceResponse> {
+  const query = new URLSearchParams();
+  query.set("framework", params.framework);
+  if (params.dateFrom) query.set("date_from", params.dateFrom);
+  if (params.dateTo) query.set("date_to", params.dateTo);
+
+  const response = await fetch(`/api/audit/evidence?${query.toString()}`);
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export interface GenerateAuditReportParams {
+  framework: AuditFrameworkAlias;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export async function generateAuditReport(
+  params: GenerateAuditReportParams
+): Promise<AuditReportSummary> {
+  const response = await fetch("/api/audit/report", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      framework: params.framework,
+      date_from: params.dateFrom,
+      date_to: params.dateTo,
+    }),
+  });
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export interface ListAuditReportsParams {
+  page?: number;
+  pageSize?: number;
+}
+
+export async function listAuditReports(
+  params: ListAuditReportsParams = {}
+): Promise<AuditReportListResponse> {
+  const query = new URLSearchParams();
+  query.set("page", String(params.page ?? 1));
+  query.set("page_size", String(params.pageSize ?? 20));
+
+  const response = await fetch(`/api/audit/reports?${query.toString()}`);
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export async function downloadAuditReport(id: string, format: "pdf" | "json"): Promise<void> {
+  const response = await fetch(`/api/audit/reports/${id}/download?format=${format}`);
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `aegis-audit-report.${format}`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+export async function getRemediationPlaybook(caseId: string): Promise<RemediationPlaybook> {
+  const response = await fetch(`/api/cases/${caseId}/remediate`, { method: "POST" });
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export interface SubmitRemediationActionParams {
+  status: "approved" | "done";
+  note?: string;
+}
+
+export async function submitRemediationAction(
+  caseId: string,
+  stepId: string,
+  params: SubmitRemediationActionParams
+): Promise<void> {
+  const response = await fetch(`/api/cases/${caseId}/remediate/${stepId}/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+}
+
+export async function getTargets(): Promise<TargetsListResponse> {
+  const response = await fetch("/api/targets");
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export interface GetFinancialRiskParams {
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export async function getFinancialRisk(
+  params: GetFinancialRiskParams = {}
+): Promise<FinancialRiskResponse> {
+  const query = new URLSearchParams();
+  if (params.dateFrom) query.set("date_from", params.dateFrom);
+  if (params.dateTo) query.set("date_to", params.dateTo);
+
+  const response = await fetch(`/api/risk/financial?${query.toString()}`);
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export async function queryCopilot(question: string): Promise<CopilotQueryResponse> {
+  const response = await fetch("/api/copilot/query", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question }),
   });
   if (!response.ok) {
     return parseErrorOrThrow(response);

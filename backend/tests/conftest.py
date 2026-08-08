@@ -59,6 +59,7 @@ def _test_database(monkeypatch, tmp_path, _test_engine):
 
     app.dependency_overrides[get_db] = _override_get_db
     monkeypatch.setattr(settings, "raw_email_storage_dir", str(tmp_path / "raw_emails"))
+    monkeypatch.setattr(settings, "audit_report_storage_dir", str(tmp_path / "audit_reports"))
 
     yield
 

@@ -8,8 +8,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.analyze import router as analyze_router
+from app.api.routes.audit import router as audit_router
 from app.api.routes.cases import router as cases_router
+from app.api.routes.copilot import router as copilot_router
+from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.labels import router as labels_router
+from app.api.routes.remediation import cases_router as remediation_cases_router
+from app.api.routes.remediation import targets_router as targets_router
+from app.api.routes.risk import router as risk_router
 from app.core.config import settings
 from app.db.session import Base, engine
 from app.storage.raw_email_store import purge_expired
@@ -43,6 +49,12 @@ app.add_middleware(
 app.include_router(analyze_router)
 app.include_router(cases_router)
 app.include_router(labels_router)
+app.include_router(dashboard_router)
+app.include_router(audit_router)
+app.include_router(remediation_cases_router)
+app.include_router(targets_router)
+app.include_router(copilot_router)
+app.include_router(risk_router)
 
 
 @app.get("/health")
