@@ -7,6 +7,7 @@ from alembic import context
 
 from app.core.config import settings
 from app.db.models import (  # noqa: F401 - imports register models on Base.metadata
+    ActorBaseline,
     AuditReport,
     Case,
     Event,

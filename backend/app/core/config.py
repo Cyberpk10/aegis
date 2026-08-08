@@ -110,5 +110,33 @@ class Settings:
         ]
     )
 
+    # Behavioral baselines / UEBA (M5 Stage 2). Cold-start gates: an actor's baseline isn't
+    # trusted over the Stage 1 static thresholds until it has this much history.
+    baseline_min_events_for_hours: int = field(
+        default_factory=lambda: int(os.environ.get("BASELINE_MIN_EVENTS_FOR_HOURS", "5"))
+    )
+    # An hour-of-day must have been seen at least this many times to count as "typical".
+    baseline_min_hour_occurrences: int = field(
+        default_factory=lambda: int(os.environ.get("BASELINE_MIN_HOUR_OCCURRENCES", "2"))
+    )
+    baseline_min_events_for_location: int = field(
+        default_factory=lambda: int(os.environ.get("BASELINE_MIN_EVENTS_FOR_LOCATION", "5"))
+    )
+    # Minimum days of daily_volume history before the volume baseline is trusted over the
+    # Stage 1 static count/distinct-target thresholds.
+    baseline_min_days_for_volume: int = field(
+        default_factory=lambda: int(os.environ.get("BASELINE_MIN_DAYS_FOR_VOLUME", "5"))
+    )
+    # A day's file-access volume fires if it exceeds mean + this-many-stddevs of the actor's
+    # rolling daily_volume history.
+    baseline_volume_stddev_multiplier: float = field(
+        default_factory=lambda: float(os.environ.get("BASELINE_VOLUME_STDDEV_MULTIPLIER", "3.0"))
+    )
+    # Rolling window size (days) for daily_volume — oldest days are dropped as new ones are
+    # added, so the baseline can adapt if an actor's normal workload genuinely changes.
+    baseline_daily_volume_window_days: int = field(
+        default_factory=lambda: int(os.environ.get("BASELINE_DAILY_VOLUME_WINDOW_DAYS", "30"))
+    )
+
 
 settings = Settings()

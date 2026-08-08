@@ -126,6 +126,7 @@ def test_intrusion_detection_source_contains_no_network_or_process_execution_cap
     dirs_to_check = [
         backend_root / "app" / "detections",
         backend_root / "app" / "events",
+        backend_root / "app" / "baselines",
     ]
     files = [
         backend_root / "app" / "remediation" / "intrusion_playbook.py",

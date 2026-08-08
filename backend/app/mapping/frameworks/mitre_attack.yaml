@@ -1,4 +1,4 @@
-version: "1.1"
+version: "1.2"
 framework: "MITRE ATT&CK"
 framework_key: mitre_attack
 source: "https://attack.mitre.org"
@@ -78,3 +78,7 @@ mappings:
   DATA_EXFIL_LARGE_TRANSFER: [T1048, T1567]
   DATA_EXFIL_LARGE_DB_EXPORT: [T1048]
   PRIVILEGE_ESCALATION: [T1068, T1078]
+
+  # M5 Stage 2 — behavioral baselines (UEBA). Reuses IMPOSSIBLE_TRAVEL's control set —
+  # same underlying technique (anomalous authentication/access location).
+  ANOMALOUS_LOCATION: [T1078]

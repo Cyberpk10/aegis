@@ -1,4 +1,4 @@
-version: "1.1"
+version: "1.2"
 framework: "SOC 2 (Trust Services Criteria)"
 framework_key: soc2
 source: "https://www.aicpa-cima.com/resources/landing/system-and-organization-controls-soc-suite-of-services"
@@ -60,3 +60,6 @@ mappings:
   DATA_EXFIL_LARGE_TRANSFER: [CC6.6, CC6.7, CC7.2]
   DATA_EXFIL_LARGE_DB_EXPORT: [CC6.7, CC7.2]
   PRIVILEGE_ESCALATION: [CC6.2, CC6.3, CC7.2]
+
+  # M5 Stage 2 — behavioral baselines (UEBA). Reuses IMPOSSIBLE_TRAVEL's control set.
+  ANOMALOUS_LOCATION: [CC6.1, CC7.2]

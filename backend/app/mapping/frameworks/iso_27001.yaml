@@ -1,4 +1,4 @@
-version: "1.1"
+version: "1.2"
 framework: "ISO/IEC 27001:2022 Annex A"
 framework_key: iso_27001
 source: "https://www.iso.org/standard/27001"
@@ -60,3 +60,6 @@ mappings:
   DATA_EXFIL_LARGE_TRANSFER: [A.8.16, A.8.15]
   DATA_EXFIL_LARGE_DB_EXPORT: [A.8.16, A.8.15]
   PRIVILEGE_ESCALATION: [A.5.15, A.8.2, A.8.15]
+
+  # M5 Stage 2 — behavioral baselines (UEBA). Reuses IMPOSSIBLE_TRAVEL's control set.
+  ANOMALOUS_LOCATION: [A.5.15, A.8.16, A.8.15]

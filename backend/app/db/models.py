@@ -232,3 +232,32 @@ class Event(Base):
     )
 
     incident: Mapped[Incident | None] = relationship(back_populates="events")
+
+
+class ActorBaseline(Base):
+    """A per-actor behavioral baseline (M5 Stage 2 — UEBA), upserted as new events arrive
+    rather than an append-only log — one row per actor, always reflecting current
+    learned-normal. `hour_counts`/`location_counts`/`ip_counts` are simple running counts;
+    `daily_volume` is a bounded rolling window of per-day file-access counts (oldest days
+    dropped as new ones are added). `event_count` is the cold-start gate other code checks
+    before trusting this baseline over a static threshold — see app.baselines.aggregation.
+    """
+
+    __tablename__ = "actor_baselines"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    actor: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    hour_counts: Mapped[list] = mapped_column(_JSONVariant, nullable=False, default=list)
+    location_counts: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)
+    ip_counts: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)
+    daily_volume: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)
+    event_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    first_seen: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    last_updated: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )

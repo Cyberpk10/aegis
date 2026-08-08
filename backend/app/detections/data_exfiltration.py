@@ -3,6 +3,7 @@ a large database export."""
 
 from __future__ import annotations
 
+from app.baselines.aggregation import BaselineSnapshot
 from app.core.config import settings
 from app.detections.base import ActorEventWindow, make_finding
 from app.models.schemas import Finding, Severity
@@ -16,7 +17,10 @@ def _is_allowlisted(target: str | None) -> bool:
     return target in settings.exfil_allowlisted_destinations
 
 
-def evaluate(window: ActorEventWindow) -> list[Finding]:
+def evaluate(window: ActorEventWindow, baseline: BaselineSnapshot | None = None) -> list[Finding]:
+    # Doesn't use behavioral baselines — a large transfer to an unfamiliar destination is
+    # suspicious regardless of the actor's history. Accepts the parameter only for a
+    # uniform engine signature.
     findings: list[Finding] = []
 
     large_transfers = [

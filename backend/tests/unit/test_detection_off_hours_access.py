@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from app.baselines.aggregation import empty_baseline, update_baseline
+from app.core.config import settings
 from app.detections.base import ActorEventWindow
 from app.detections.off_hours_access import evaluate
 from app.events.schema import ActivityEvent, EventAction
@@ -52,3 +54,44 @@ def test_severity_scales_with_count():
     )
     assert evaluate(few)[0].severity.value == "low"
     assert evaluate(many)[0].severity.value == "high"
+
+
+def _night_shift_baseline(monkeypatch, min_occurrences: int = 2):
+    """A baseline where hour 2 has been established as the actor's normal login hour
+    (e.g. a night-shift analyst) — established across several distinct weekdays so the
+    weekend rule doesn't interfere."""
+    monkeypatch.setattr(settings, "baseline_min_hour_occurrences", min_occurrences)
+    monkeypatch.setattr(settings, "baseline_min_events_for_hours", 3)
+    baseline = empty_baseline("carol@corp.com")
+    for day in (5, 6, 7, 8):  # Mon-Thu 2026-01-05..08
+        baseline = update_baseline(
+            baseline, [_event(2, EventAction.FILE_ACCESS, day=day)]
+        )
+    return baseline
+
+
+def test_baseline_does_not_fire_for_an_hour_within_the_established_pattern(monkeypatch):
+    baseline = _night_shift_baseline(monkeypatch)
+    window = ActorEventWindow(actor="carol@corp.com", events=[_event(2, EventAction.FILE_ACCESS)])
+    assert evaluate(window, baseline) == []
+
+
+def test_baseline_fires_for_an_hour_outside_the_established_pattern(monkeypatch):
+    baseline = _night_shift_baseline(monkeypatch)
+    # Hour 14 was never seen in the baseline, even though it's within Stage 1's static
+    # business hours — baseline overrides the static window once established.
+    window = ActorEventWindow(actor="carol@corp.com", events=[_event(14, EventAction.FILE_ACCESS)])
+    findings = evaluate(window, baseline)
+    assert len(findings) == 1
+    assert "established" in findings[0].description.lower()
+
+
+def test_cold_start_baseline_falls_back_to_static_business_hours(monkeypatch):
+    baseline = _night_shift_baseline(monkeypatch)  # 4 events
+    monkeypatch.setattr(settings, "baseline_min_events_for_hours", 100)  # never enough history
+    # 2am is within the "established" night-shift pattern, but the baseline isn't trusted
+    # yet — falls back to Stage 1 static business hours, which flags 2am as off-hours.
+    window = ActorEventWindow(actor="carol@corp.com", events=[_event(2, EventAction.FILE_ACCESS)])
+    findings = evaluate(window, baseline)
+    assert len(findings) == 1
+    assert "business hours" in findings[0].description.lower()

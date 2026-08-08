@@ -1,4 +1,4 @@
-version: "1.1"
+version: "1.2"
 framework: "NIST Cybersecurity Framework 2.0"
 framework_key: nist_csf
 source: "https://www.nist.gov/cyberframework"
@@ -64,3 +64,6 @@ mappings:
   DATA_EXFIL_LARGE_TRANSFER: [DE.CM-01, DE.AE-08]
   DATA_EXFIL_LARGE_DB_EXPORT: [DE.CM-01, DE.AE-08]
   PRIVILEGE_ESCALATION: [DE.AE-03, PR.AA-05, DE.AE-08]
+
+  # M5 Stage 2 — behavioral baselines (UEBA). Reuses IMPOSSIBLE_TRAVEL's control set.
+  ANOMALOUS_LOCATION: [DE.AE-03, PR.AA-03, DE.AE-08]

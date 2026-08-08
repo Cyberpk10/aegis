@@ -6,6 +6,7 @@ from __future__ import annotations
 import math
 from datetime import timedelta
 
+from app.baselines.aggregation import BaselineSnapshot
 from app.detections.base import ActorEventWindow, make_finding
 from app.models.schemas import Finding, Severity
 
@@ -24,7 +25,10 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * _EARTH_RADIUS_KM * math.asin(min(1.0, math.sqrt(a)))
 
 
-def evaluate(window: ActorEventWindow) -> list[Finding]:
+def evaluate(window: ActorEventWindow, baseline: BaselineSnapshot | None = None) -> list[Finding]:
+    # Doesn't use behavioral baselines — its threshold (physically implausible travel
+    # speed) is a physics constant, not an arbitrary business rule, so there's nothing to
+    # baseline here. Accepts the parameter only for a uniform engine signature.
     logins = sorted(
         (
             e

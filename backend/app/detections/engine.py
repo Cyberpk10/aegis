@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from app.baselines.aggregation import BaselineSnapshot
 from app.detections import (
+    anomalous_location,
     brute_force,
     data_exfiltration,
     impossible_travel,
@@ -16,6 +18,7 @@ from app.models.schemas import Finding
 _RULES: list[DetectionRule] = [
     brute_force.evaluate,
     impossible_travel.evaluate,
+    anomalous_location.evaluate,
     off_hours_access.evaluate,
     mass_file_access.evaluate,
     data_exfiltration.evaluate,
@@ -23,8 +26,8 @@ _RULES: list[DetectionRule] = [
 ]
 
 
-def run_detections(window: ActorEventWindow) -> list[Finding]:
+def run_detections(window: ActorEventWindow, baseline: BaselineSnapshot | None = None) -> list[Finding]:
     findings: list[Finding] = []
     for rule in _RULES:
-        findings.extend(rule(window))
+        findings.extend(rule(window, baseline))
     return findings

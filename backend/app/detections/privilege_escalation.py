@@ -3,11 +3,14 @@ chained after other suspicious activity (auth failures) from the same actor."""
 
 from __future__ import annotations
 
+from app.baselines.aggregation import BaselineSnapshot
 from app.detections.base import ActorEventWindow, make_finding
 from app.models.schemas import Finding, Severity
 
 
-def evaluate(window: ActorEventWindow) -> list[Finding]:
+def evaluate(window: ActorEventWindow, baseline: BaselineSnapshot | None = None) -> list[Finding]:
+    # Doesn't use behavioral baselines — any privilege change is worth surfacing regardless
+    # of the actor's history. Accepts the parameter only for a uniform engine signature.
     priv_changes = [e for e in window.events if e.action == "privilege_change"]
     if not priv_changes:
         return []

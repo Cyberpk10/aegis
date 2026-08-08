@@ -1,10 +1,11 @@
 """POST /api/events — source-agnostic ingestion of normalized activity events, with
-synchronous per-actor detection (M5 Stage 1). Defensive monitoring only: this endpoint
-persists events and, when warranted, an incident case — nothing here blocks, isolates, or
-otherwise alters any external system. An incident is only created when the fused verdict
-for an actor's event window is non-safe (see app.detections/app.scoring.intrusion_risk_engine)
-— events are continuous telemetry, so persisting a "safe" incident per actor per batch would
-flood the incidents table with routine activity.
+synchronous per-actor detection (M5 Stage 1) against the actor's own behavioral baseline
+(M5 Stage 2 — UEBA). Defensive monitoring only: this endpoint persists events and, when
+warranted, an incident case — nothing here blocks, isolates, or otherwise alters any
+external system. An incident is only created when the fused verdict for an actor's event
+window is non-safe (see app.detections/app.scoring.intrusion_risk_engine) — events are
+continuous telemetry, so persisting a "safe" incident per actor per batch would flood the
+incidents table with routine activity.
 """
 
 from __future__ import annotations
@@ -15,8 +16,9 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.baselines.aggregation import BaselineSnapshot, empty_baseline, update_baseline
 from app.core.config import settings
-from app.db.models import Event, Incident
+from app.db.models import ActorBaseline, Event, Incident
 from app.db.session import get_db
 from app.detections.base import ActorEventWindow
 from app.detections.engine import run_detections
@@ -68,6 +70,43 @@ def _incident_title(actor: str, findings: list[Finding]) -> str:
     return f"{findings[0].title} — {actor}"
 
 
+def _load_baseline_snapshot(db: Session, actor: str) -> BaselineSnapshot:
+    row = db.query(ActorBaseline).filter(ActorBaseline.actor == actor).first()
+    if row is None:
+        return empty_baseline(actor)
+    return BaselineSnapshot(
+        actor=actor,
+        hour_counts=list(row.hour_counts),
+        location_counts=dict(row.location_counts),
+        ip_counts=dict(row.ip_counts),
+        daily_volume=dict(row.daily_volume),
+        event_count=row.event_count,
+    )
+
+
+def _persist_baseline(db: Session, snapshot: BaselineSnapshot) -> None:
+    row = db.query(ActorBaseline).filter(ActorBaseline.actor == snapshot.actor).first()
+    if row is None:
+        db.add(
+            ActorBaseline(
+                id=uuid.uuid4(),
+                actor=snapshot.actor,
+                hour_counts=snapshot.hour_counts,
+                location_counts=snapshot.location_counts,
+                ip_counts=snapshot.ip_counts,
+                daily_volume=snapshot.daily_volume,
+                event_count=snapshot.event_count,
+            )
+        )
+        return
+
+    row.hour_counts = snapshot.hour_counts
+    row.location_counts = snapshot.location_counts
+    row.ip_counts = snapshot.ip_counts
+    row.daily_volume = snapshot.daily_volume
+    row.event_count = snapshot.event_count
+
+
 @router.post("", response_model=EventBatchResponse)
 async def ingest_events(
     body: EventBatchRequest, db: Session = Depends(get_db)
@@ -98,8 +137,18 @@ async def ingest_events(
         window = ActorEventWindow(
             actor=actor, events=[_to_activity_event(row) for row in window_rows]
         )
-        findings = run_detections(window)
+
+        # Load the baseline BEFORE detection and update it AFTER — never the other way
+        # around. Folding this batch in first would let a burst of malicious activity
+        # inflate its own "normal" and mask itself from the very comparison meant to
+        # catch it. The baseline still updates even when nothing fires: routine activity
+        # is exactly what should be learned as normal.
+        baseline = _load_baseline_snapshot(db, actor)
+        findings = run_detections(window, baseline)
         score, verdict = fuse(findings)
+
+        batch_events = [_to_activity_event(row) for row in actor_batch_rows]
+        _persist_baseline(db, update_baseline(baseline, batch_events))
 
         if verdict.value == "safe":
             continue

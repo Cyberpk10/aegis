@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from app.baselines.aggregation import BaselineSnapshot
 from app.detections.base import ActorEventWindow, make_finding
 from app.events.schema import ActivityEvent
 from app.models.schemas import Finding, Severity
@@ -31,7 +32,9 @@ def _max_auth_fail_burst(events: list[ActivityEvent]) -> list[ActivityEvent]:
     return best
 
 
-def evaluate(window: ActorEventWindow) -> list[Finding]:
+def evaluate(window: ActorEventWindow, baseline: BaselineSnapshot | None = None) -> list[Finding]:
+    # Doesn't use behavioral baselines — a burst of auth failures is suspicious regardless
+    # of the actor's history. Accepts the parameter only for a uniform engine signature.
     burst = _max_auth_fail_burst(window.events)
     if len(burst) < _FIRE_THRESHOLD:
         return []
