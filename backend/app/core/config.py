@@ -138,5 +138,12 @@ class Settings:
         default_factory=lambda: int(os.environ.get("BASELINE_DAILY_VOLUME_WINDOW_DAYS", "30"))
     )
 
+    # Autonomous response (M6 Stage 1). Stub tenant identity — no full multi-tenant account
+    # system exists in Aegis yet. An X-Tenant-Id request header overrides this per-request,
+    # same pattern as default_analyst_id/X-Analyst-Id.
+    default_tenant_id: str = field(
+        default_factory=lambda: os.environ.get("DEFAULT_TENANT_ID", "default")
+    )
+
 
 settings = Settings()

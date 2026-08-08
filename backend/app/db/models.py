@@ -8,8 +8,10 @@ from datetime import datetime, timezone
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -261,3 +263,72 @@ class ActorBaseline(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+class AutonomyPolicy(Base):
+    """A tenant's autonomy configuration (M6 Stage 1) — one row per tenant, upserted (same
+    pattern as TrainingRecommendation/ActorBaseline), not append-only. `tenant_id` is a
+    stub key (default "default") — no full multi-tenant account system exists in Aegis
+    yet; see app.api.routes.autonomy for how it's resolved from an optional request
+    header. `rules`/`exclusions` are plain JSON, parsed into app.autonomy.policy.Policy
+    dataclasses by the route layer — this row is the persisted form, not the evaluation
+    interface."""
+
+    __tablename__ = "autonomy_policies"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    level: Mapped[str] = mapped_column(String, nullable=False, default="L0")
+    rules: Mapped[list] = mapped_column(_JSONVariant, nullable=False, default=list)
+    exclusions: Mapped[list] = mapped_column(_JSONVariant, nullable=False, default=list)
+    blast_radius_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    blast_radius_window_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+    halted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class AutonomyAction(Base):
+    """Append-only audit log of every autonomy policy decision (M6 Stage 1) — the
+    compliance-evidence trail. Written for every decision (auto_execute, require_approval,
+    AND skip), not just executed ones, so "every action produces a complete audit log
+    record" holds unconditionally. Triggered by a case OR an incident (dual-parent FK +
+    CHECK, same pattern as Label/RemediationAction) since the M6 action catalog spans
+    both email cases and activity incidents. `policy_rule` is a snapshot of the matched
+    rule at decision time, since the live policy can change later and the audit record
+    must reflect what actually applied."""
+
+    __tablename__ = "autonomy_actions"
+    __table_args__ = (
+        CheckConstraint(
+            "(case_id IS NOT NULL) != (incident_id IS NOT NULL)",
+            name="ck_autonomy_actions_exactly_one_parent",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    case_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("cases.id", ondelete="CASCADE"), nullable=True
+    )
+    incident_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("incidents.id", ondelete="CASCADE"), nullable=True
+    )
+    trigger_finding_id: Mapped[str] = mapped_column(String, nullable=False)
+    action_type: Mapped[str] = mapped_column(String, nullable=False)
+    target: Mapped[str] = mapped_column(String, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    policy_rule: Mapped[dict | None] = mapped_column(_JSONVariant, nullable=True)
+    decision: Mapped[str] = mapped_column(String, nullable=False)
+    # "executed" | "reversed" | "pending_approval" | "skipped" | "halted"
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    result: Mapped[dict | None] = mapped_column(_JSONVariant, nullable=True)
+    reversible: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    mapped_controls: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)

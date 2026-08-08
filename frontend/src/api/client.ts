@@ -5,6 +5,9 @@ import type {
   AuditFrameworkAlias,
   AuditReportListResponse,
   AuditReportSummary,
+  AutonomyActionListResponse,
+  AutonomyHaltResponse,
+  AutonomyPolicy,
   CaseDetail,
   CaseListResponse,
   CopilotQueryResponse,
@@ -360,4 +363,71 @@ export async function queryCopilot(question: string): Promise<CopilotQueryRespon
     return parseErrorOrThrow(response);
   }
   return response.json();
+}
+
+export async function getAutonomyPolicy(): Promise<AutonomyPolicy> {
+  const response = await fetch("/api/autonomy/policy");
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export type PutAutonomyPolicyParams = Pick<
+  AutonomyPolicy,
+  "level" | "rules" | "exclusions" | "blast_radius_limit" | "blast_radius_window_minutes"
+>;
+
+export async function putAutonomyPolicy(
+  params: PutAutonomyPolicyParams
+): Promise<AutonomyPolicy> {
+  const response = await fetch("/api/autonomy/policy", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export async function haltAutonomy(): Promise<AutonomyHaltResponse> {
+  const response = await fetch("/api/autonomy/halt", { method: "POST" });
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export interface ListAutonomyActionsParams {
+  page?: number;
+  pageSize?: number;
+  actionType?: string;
+  decision?: string;
+  status?: string;
+}
+
+export async function getAutonomyActions(
+  params: ListAutonomyActionsParams = {}
+): Promise<AutonomyActionListResponse> {
+  const query = new URLSearchParams();
+  query.set("page", String(params.page ?? 1));
+  query.set("page_size", String(params.pageSize ?? 20));
+  if (params.actionType) query.set("action_type", params.actionType);
+  if (params.decision) query.set("decision", params.decision);
+  if (params.status) query.set("status", params.status);
+
+  const response = await fetch(`/api/autonomy/actions?${query.toString()}`);
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export async function reverseAutonomyAction(id: string): Promise<void> {
+  const response = await fetch(`/api/autonomy/actions/${id}/reverse`, { method: "POST" });
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
 }

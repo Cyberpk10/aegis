@@ -387,3 +387,58 @@ export interface EventBatchResponse {
   accepted: number;
   incidents_created: IncidentSummary[];
 }
+
+export type AutonomyLevel = "L0" | "L1" | "L2" | "L3";
+
+export interface AutonomyPolicyRule {
+  action_type: string;
+  min_confidence: number;
+  scopes: string[] | null;
+  full_auto: boolean;
+}
+
+export interface AutonomyPolicy {
+  tenant_id: string;
+  level: AutonomyLevel;
+  rules: AutonomyPolicyRule[];
+  exclusions: string[];
+  blast_radius_limit: number;
+  blast_radius_window_minutes: number;
+  halted_at: string | null;
+  updated_at: string;
+}
+
+export interface AutonomyHaltResponse {
+  tenant_id: string;
+  level: AutonomyLevel;
+  halted_at: string;
+  halted_pending_count: number;
+}
+
+export type AutonomyDecision = "auto_execute" | "require_approval" | "skip";
+export type AutonomyActionStatus = "executed" | "reversed" | "pending_approval" | "skipped" | "halted";
+
+export interface AutonomyActionLogEntry {
+  id: string;
+  tenant_id: string;
+  created_at: string;
+  case_id: string | null;
+  incident_id: string | null;
+  trigger_finding_id: string;
+  action_type: string;
+  target: string;
+  confidence: number;
+  policy_rule: AutonomyPolicyRule | null;
+  decision: AutonomyDecision;
+  status: AutonomyActionStatus;
+  result: Record<string, unknown> | null;
+  reversible: boolean;
+  mapped_controls: Record<string, FrameworkControlRef[]>;
+}
+
+export interface AutonomyActionListResponse {
+  items: AutonomyActionLogEntry[];
+  total: number;
+  page: number;
+  page_size: number;
+}

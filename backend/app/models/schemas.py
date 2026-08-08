@@ -449,3 +449,70 @@ class IncidentDetailResponse(BaseModel):
 class EventBatchResponse(BaseModel):
     accepted: int
     incidents_created: list[IncidentSummary]
+
+
+class AutonomyLevel(str, Enum):
+    L0 = "L0"
+    L1 = "L1"
+    L2 = "L2"
+    L3 = "L3"
+
+
+class AutonomyPolicyRuleSchema(BaseModel):
+    action_type: str
+    min_confidence: float
+    scopes: list[str] | None = None
+    full_auto: bool = False
+
+
+class AutonomyPolicyRequest(BaseModel):
+    level: AutonomyLevel
+    rules: list[AutonomyPolicyRuleSchema] = Field(default_factory=list)
+    exclusions: list[str] = Field(default_factory=list)
+    blast_radius_limit: int = Field(default=10, ge=1)
+    blast_radius_window_minutes: int = Field(default=60, ge=1)
+
+
+class AutonomyPolicyResponse(BaseModel):
+    tenant_id: str
+    level: AutonomyLevel
+    rules: list[AutonomyPolicyRuleSchema]
+    exclusions: list[str]
+    blast_radius_limit: int
+    blast_radius_window_minutes: int
+    halted_at: datetime | None = None
+    updated_at: datetime
+
+
+class AutonomyActionResponse(BaseModel):
+    id: UUID
+    tenant_id: str
+    created_at: datetime
+    case_id: UUID | None = None
+    incident_id: UUID | None = None
+    trigger_finding_id: str
+    action_type: str
+    target: str
+    confidence: float
+    policy_rule: dict | None = None
+    decision: str
+    status: str
+    result: dict | None = None
+    reversible: bool
+    mapped_controls: dict[str, list[FrameworkControlRef]]
+
+    model_config = {"from_attributes": True}
+
+
+class AutonomyActionListResponse(BaseModel):
+    items: list[AutonomyActionResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class AutonomyHaltResponse(BaseModel):
+    tenant_id: str
+    level: AutonomyLevel
+    halted_at: datetime
+    halted_pending_count: int

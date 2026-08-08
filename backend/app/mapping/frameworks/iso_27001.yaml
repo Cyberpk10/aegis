@@ -1,4 +1,4 @@
-version: "1.2"
+version: "1.3"
 framework: "ISO/IEC 27001:2022 Annex A"
 framework_key: iso_27001
 source: "https://www.iso.org/standard/27001"
@@ -32,6 +32,10 @@ controls:
   - id: A.8.16
     name: "Monitoring activities"
     url: null
+  # M6 Stage 1 — autonomous response (graduated autonomy). Verified via isms.online.
+  - id: A.5.26
+    name: "Response to information security incidents"
+    url: null
 
 mappings:
   SENDER_REPLYTO_MISMATCH: [A.5.7, A.5.14]
@@ -63,3 +67,9 @@ mappings:
 
   # M5 Stage 2 — behavioral baselines (UEBA). Reuses IMPOSSIBLE_TRAVEL's control set.
   ANOMALOUS_LOCATION: [A.5.15, A.8.16, A.8.15]
+
+  # M6 Stage 1 — autonomous response (graduated autonomy). Response/containment actions.
+  QUARANTINE_EMAIL: [A.5.26]
+  DISABLE_SESSION: [A.5.26, A.8.2]
+  BLOCK_SENDER_DOMAIN: [A.5.26]
+  FLAG_ACCOUNT_FOR_REVIEW: [A.5.26]

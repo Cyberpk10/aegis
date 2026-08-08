@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.analyze import router as analyze_router
 from app.api.routes.audit import router as audit_router
+from app.api.routes.autonomy import router as autonomy_router
 from app.api.routes.cases import router as cases_router
 from app.api.routes.copilot import router as copilot_router
 from app.api.routes.dashboard import router as dashboard_router
@@ -61,6 +62,7 @@ app.include_router(risk_router)
 app.include_router(events_router)
 app.include_router(incidents_router)
 app.include_router(remediation_incidents_router)
+app.include_router(autonomy_router)
 
 
 @app.get("/health")

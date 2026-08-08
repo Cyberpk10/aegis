@@ -9,18 +9,30 @@ or notifies anyone automatically — there is no network/SMTP/subprocess call an
 feature. POST .../action's only effect is inserting a state row; GET /api/targets's only
 write is upserting the stored training recommendation it computed from data already in the
 database.
+
+M6 Stage 1 adds one more side effect to the two playbook-fetch endpoints below: an
+idempotent autonomy policy evaluation (see _run_autonomy_evaluation) that may, per the
+tenant's configured policy, auto-execute a narrow, reversible action through
+app.autonomy.executor.MockConnector. This is the only place in the whole file that can
+result in Aegis actually doing something rather than just recording a human's decision —
+everything about *when* and *whether* it fires is governed by app.autonomy.policy, not by
+this module.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
+from app.autonomy.actions import ACTIONS, BLOCK_SENDER_DOMAIN, FINDING_ACTION_MAP, confidence_from_scores
+from app.autonomy.executor import MockConnector, execute_if_authorized
+from app.autonomy.store import get_or_create_policy_row, to_policy_dataclass
 from app.core.config import settings
-from app.db.models import Case, Incident, RemediationAction, TrainingRecommendation
+from app.db.models import AutonomyAction, Case, Incident, RemediationAction, TrainingRecommendation
 from app.db.session import get_db
 from app.models.schemas import (
     PlaybookStepResponse,
@@ -39,6 +51,71 @@ from app.remediation.targets import TargetCaseRow, aggregate_targets
 cases_router = APIRouter(prefix="/api/cases", tags=["remediation"])
 incidents_router = APIRouter(prefix="/api/incidents", tags=["remediation"])
 targets_router = APIRouter(prefix="/api/targets", tags=["targets"])
+
+# Stage 1 ships only MockConnector — see app.autonomy.executor. A single module-level
+# instance is fine since it holds no state and performs no real I/O.
+_connector = MockConnector()
+
+
+def _case_target(case: Case, action_type: str) -> str:
+    if action_type == BLOCK_SENDER_DOMAIN and case.from_addr and "@" in case.from_addr:
+        return case.from_addr.split("@", 1)[1]
+    return case.from_addr or str(case.id)
+
+
+def _run_autonomy_evaluation(
+    db: Session,
+    *,
+    case_id: UUID | None,
+    incident_id: UUID | None,
+    raw_findings: list[dict],
+    score_field: str,
+    scope: str,
+    resolve_target: Callable[[str], str],
+) -> None:
+    """Idempotent: only evaluates (and possibly executes) action types that don't already
+    have an AutonomyAction row for this case/incident, so calling this on every playbook
+    fetch never re-evaluates or re-executes an already-resolved action. Does not commit —
+    callers do, alongside the rest of their transaction."""
+    by_action: dict[str, list[dict]] = {}
+    for item in raw_findings:
+        action_type = FINDING_ACTION_MAP.get(item["id"])
+        if action_type is None:
+            continue
+        by_action.setdefault(action_type, []).append(item)
+    if not by_action:
+        return
+
+    existing = db.query(AutonomyAction.action_type).filter(
+        AutonomyAction.case_id == case_id
+        if case_id is not None
+        else AutonomyAction.incident_id == incident_id
+    )
+    already_evaluated = {row[0] for row in existing.all()}
+    pending = {t: items for t, items in by_action.items() if t not in already_evaluated}
+    if not pending:
+        return
+
+    policy_row = get_or_create_policy_row(db, settings.default_tenant_id)
+    policy = to_policy_dataclass(policy_row)
+
+    for action_type, items in pending.items():
+        confidence = confidence_from_scores(item[score_field] for item in items)
+        trigger_item = min(items, key=lambda i: i[score_field])
+        execute_if_authorized(
+            db,
+            policy=policy,
+            blast_radius_limit=policy_row.blast_radius_limit,
+            blast_radius_window_minutes=policy_row.blast_radius_window_minutes,
+            connector=_connector,
+            action=ACTIONS[action_type],
+            confidence=confidence,
+            target=resolve_target(action_type),
+            scope=scope,
+            trigger_finding_id=trigger_item["id"],
+            case_id=case_id,
+            incident_id=incident_id,
+        )
 
 
 def _latest_actions_by_step(
@@ -141,12 +218,26 @@ def _build_incident_playbook_response(incident: Incident, db: Session) -> Remedi
 async def get_case_remediation_playbook(
     case_id: UUID, db: Session = Depends(get_db)
 ) -> RemediationPlaybookResponse:
-    """Pure read: derives the playbook from the case's already-stored indicators and
-    merges in whatever approval state already exists. Inserts/changes nothing — safe to
-    call repeatedly."""
+    """Derives the playbook from the case's already-stored indicators and merges in
+    whatever approval state already exists — the returned playbook itself is unaffected by
+    autonomy either way. Also (M6 Stage 1) idempotently runs autonomy policy evaluation for
+    any indicator with a mapped autonomy action; safe to call repeatedly — an action type
+    already evaluated for this case is never re-evaluated or re-executed."""
     case = db.get(Case, case_id)
     if case is None:
         raise HTTPException(status_code=404, detail="Case not found.")
+
+    _run_autonomy_evaluation(
+        db,
+        case_id=case.id,
+        incident_id=None,
+        raw_findings=case.indicators,
+        score_field="score",
+        scope="email",
+        resolve_target=lambda action_type: _case_target(case, action_type),
+    )
+    db.commit()
+
     return _build_playbook_response(case, db)
 
 
@@ -154,10 +245,23 @@ async def get_case_remediation_playbook(
 async def get_incident_remediation_playbook(
     incident_id: UUID, db: Session = Depends(get_db)
 ) -> RemediationPlaybookResponse:
-    """Pure read, incident-scoped equivalent of get_case_remediation_playbook."""
+    """Incident-scoped equivalent of get_case_remediation_playbook, including the same
+    idempotent M6 Stage 1 autonomy evaluation side effect."""
     incident = db.get(Incident, incident_id)
     if incident is None:
         raise HTTPException(status_code=404, detail="Incident not found.")
+
+    _run_autonomy_evaluation(
+        db,
+        case_id=None,
+        incident_id=incident.id,
+        raw_findings=incident.findings,
+        score_field="points",
+        scope="activity",
+        resolve_target=lambda action_type: incident.actor,
+    )
+    db.commit()
+
     return _build_incident_playbook_response(incident, db)
 
 
