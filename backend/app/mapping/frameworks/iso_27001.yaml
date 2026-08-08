@@ -1,4 +1,4 @@
-version: "1.0"
+version: "1.1"
 framework: "ISO/IEC 27001:2022 Annex A"
 framework_key: iso_27001
 source: "https://www.iso.org/standard/27001"
@@ -17,6 +17,20 @@ controls:
     url: null
   - id: A.5.14
     name: "Information transfer"
+    url: null
+  # M5 Stage 1 — intrusion & data-exfiltration detection (access control + logging, per
+  # your spec).
+  - id: A.5.15
+    name: "Access control"
+    url: null
+  - id: A.8.2
+    name: "Privileged access rights"
+    url: null
+  - id: A.8.15
+    name: "Logging"
+    url: null
+  - id: A.8.16
+    name: "Monitoring activities"
     url: null
 
 mappings:
@@ -37,3 +51,12 @@ mappings:
   AUTH_SPF_FAIL: [A.5.7, A.5.14]
   AUTH_DKIM_FAIL: [A.5.7, A.5.14]
   AUTH_DMARC_FAIL: [A.5.7, A.5.14]
+
+  # M5 Stage 1 — intrusion & data-exfiltration detection.
+  BRUTE_FORCE_PASSWORD_SPRAY: [A.5.15, A.8.16, A.8.15]
+  IMPOSSIBLE_TRAVEL: [A.5.15, A.8.16, A.8.15]
+  OFF_HOURS_ACCESS: [A.5.15, A.8.16, A.8.15]
+  MASS_FILE_ACCESS: [A.8.16, A.8.15]
+  DATA_EXFIL_LARGE_TRANSFER: [A.8.16, A.8.15]
+  DATA_EXFIL_LARGE_DB_EXPORT: [A.8.16, A.8.15]
+  PRIVILEGE_ESCALATION: [A.5.15, A.8.2, A.8.15]

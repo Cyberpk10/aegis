@@ -1,4 +1,5 @@
 import type {
+  ActivityEvent,
   AnalyzeResponse,
   AuditEvidenceResponse,
   AuditFrameworkAlias,
@@ -8,7 +9,10 @@ import type {
   CaseListResponse,
   CopilotQueryResponse,
   DashboardSummary,
+  EventBatchResponse,
   FinancialRiskResponse,
+  IncidentDetail,
+  IncidentListResponse,
   Label,
   RemediationPlaybook,
   TargetsListResponse,
@@ -248,6 +252,102 @@ export async function getFinancialRisk(
     return parseErrorOrThrow(response);
   }
   return response.json();
+}
+
+export async function postEventsBatch(
+  events: Omit<ActivityEvent, "id">[]
+): Promise<EventBatchResponse> {
+  const response = await fetch("/api/events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ events }),
+  });
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export interface ListIncidentsParams {
+  page?: number;
+  pageSize?: number;
+  verdict?: Verdict | "";
+  actor?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export async function getIncidents(
+  params: ListIncidentsParams = {}
+): Promise<IncidentListResponse> {
+  const query = new URLSearchParams();
+  query.set("page", String(params.page ?? 1));
+  query.set("page_size", String(params.pageSize ?? 20));
+  if (params.verdict) query.set("verdict", params.verdict);
+  if (params.actor) query.set("actor", params.actor);
+  if (params.dateFrom) query.set("date_from", params.dateFrom);
+  if (params.dateTo) query.set("date_to", params.dateTo);
+
+  const response = await fetch(`/api/incidents?${query.toString()}`);
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export async function getIncident(id: string): Promise<IncidentDetail> {
+  const response = await fetch(`/api/incidents/${id}`);
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export async function deleteIncident(id: string): Promise<void> {
+  const response = await fetch(`/api/incidents/${id}`, { method: "DELETE" });
+  if (!response.ok && response.status !== 204) {
+    return parseErrorOrThrow(response);
+  }
+}
+
+export async function submitIncidentLabel(
+  incidentId: string,
+  params: SubmitLabelParams
+): Promise<Label> {
+  const response = await fetch(`/api/incidents/${incidentId}/label`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export async function getIncidentRemediationPlaybook(
+  incidentId: string
+): Promise<RemediationPlaybook> {
+  const response = await fetch(`/api/incidents/${incidentId}/remediate`, { method: "POST" });
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export async function submitIncidentRemediationAction(
+  incidentId: string,
+  stepId: string,
+  params: SubmitRemediationActionParams
+): Promise<void> {
+  const response = await fetch(`/api/incidents/${incidentId}/remediate/${stepId}/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
 }
 
 export async function queryCopilot(question: string): Promise<CopilotQueryResponse> {

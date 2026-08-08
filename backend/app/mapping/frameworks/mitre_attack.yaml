@@ -1,4 +1,4 @@
-version: "1.0"
+version: "1.1"
 framework: "MITRE ATT&CK"
 framework_key: mitre_attack
 source: "https://attack.mitre.org"
@@ -24,6 +24,25 @@ controls:
   - id: T1204.002
     name: "User Execution: Malicious File"
     url: "https://attack.mitre.org/techniques/T1204/002/"
+  # M5 Stage 1 — intrusion & data-exfiltration detection (activity-event telemetry).
+  - id: T1110
+    name: "Brute Force"
+    url: "https://attack.mitre.org/techniques/T1110/"
+  - id: T1110.003
+    name: "Brute Force: Password Spraying"
+    url: "https://attack.mitre.org/techniques/T1110/003/"
+  - id: T1078
+    name: "Valid Accounts"
+    url: "https://attack.mitre.org/techniques/T1078/"
+  - id: T1048
+    name: "Exfiltration Over Alternative Protocol"
+    url: "https://attack.mitre.org/techniques/T1048/"
+  - id: T1567
+    name: "Exfiltration Over Web Service"
+    url: "https://attack.mitre.org/techniques/T1567/"
+  - id: T1068
+    name: "Exploitation for Privilege Escalation"
+    url: "https://attack.mitre.org/techniques/T1068/"
 
 mappings:
   SENDER_REPLYTO_MISMATCH: [T1656]
@@ -50,3 +69,12 @@ mappings:
   # polish spearphishing/phishing lures (T1566, T1566.002), which is the attacker behavior
   # this signal is corroborating evidence for.
   AI_AUTHORED_SUSPECTED: [T1566, T1566.002]
+
+  # M5 Stage 1 — intrusion & data-exfiltration detection.
+  BRUTE_FORCE_PASSWORD_SPRAY: [T1110, T1110.003]
+  IMPOSSIBLE_TRAVEL: [T1078]
+  OFF_HOURS_ACCESS: [T1078]
+  MASS_FILE_ACCESS: [T1048]
+  DATA_EXFIL_LARGE_TRANSFER: [T1048, T1567]
+  DATA_EXFIL_LARGE_DB_EXPORT: [T1048]
+  PRIVILEGE_ESCALATION: [T1068, T1078]

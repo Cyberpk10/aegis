@@ -9,10 +9,11 @@ import CasesView from "./components/CasesView";
 import DashboardView from "./components/dashboard/DashboardView";
 import AuditView from "./components/audit/AuditView";
 import CopilotView from "./components/copilot/CopilotView";
+import DetectionsView from "./components/detections/DetectionsView";
 import { postAnalyze, AnalyzeError } from "./api/client";
 import type { AnalyzeResponse } from "./types/analysis";
 
-type Tab = "analyze" | "cases" | "dashboard" | "audit" | "copilot";
+type Tab = "analyze" | "cases" | "dashboard" | "audit" | "copilot" | "detections";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("analyze");
@@ -38,7 +39,9 @@ export default function App() {
     <div className="min-h-screen bg-slate-50">
       <div
         className={`mx-auto px-4 py-10 ${
-          tab === "dashboard" || tab === "audit" || tab === "copilot" ? "max-w-6xl" : "max-w-3xl"
+          tab === "dashboard" || tab === "audit" || tab === "copilot" || tab === "detections"
+            ? "max-w-6xl"
+            : "max-w-3xl"
         }`}
       >
         <header className="mb-8">
@@ -48,7 +51,7 @@ export default function App() {
             deterministic phishing-indicator analysis.
           </p>
           <nav className="mt-4 flex gap-1 border-b border-slate-200">
-            {(["analyze", "cases", "dashboard", "audit", "copilot"] as const).map((t) => (
+            {(["analyze", "cases", "dashboard", "detections", "audit", "copilot"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -67,6 +70,8 @@ export default function App() {
         {tab === "cases" && <CasesView />}
 
         {tab === "dashboard" && <DashboardView />}
+
+        {tab === "detections" && <DetectionsView />}
 
         {tab === "audit" && <AuditView />}
 

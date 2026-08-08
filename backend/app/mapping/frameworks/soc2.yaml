@@ -1,4 +1,4 @@
-version: "1.0"
+version: "1.1"
 framework: "SOC 2 (Trust Services Criteria)"
 framework_key: soc2
 source: "https://www.aicpa-cima.com/resources/landing/system-and-organization-controls-soc-suite-of-services"
@@ -14,6 +14,23 @@ controls:
     url: null
   - id: CC7.2
     name: "The entity monitors system components for anomalies indicative of malicious acts or security events"
+    url: null
+  # M5 Stage 1 — intrusion & data-exfiltration detection (CC6/CC7 family, per your spec).
+  # AICPA's Trust Services Criteria text is not freely republishable (paywalled), so these
+  # are short paraphrased labels — same tier of sourcing as the existing CC6.1/CC6.6/CC7.2
+  # entries above, cross-checked against multiple independent compliance-industry
+  # references rather than a single source.
+  - id: CC6.2
+    name: "The entity registers and authorizes new users before granting system access, and removes access when no longer authorized"
+    url: null
+  - id: CC6.3
+    name: "The entity authorizes, modifies, or removes access based on roles/responsibilities and the principle of least privilege"
+    url: null
+  - id: CC6.7
+    name: "The entity restricts the transmission, movement, and removal of information to authorized users and processes"
+    url: null
+  - id: CC7.1
+    name: "The entity uses detection and monitoring procedures to identify changes and anomalies that could indicate a security event"
     url: null
 
 mappings:
@@ -34,3 +51,12 @@ mappings:
   AUTH_SPF_FAIL: [CC6.6, CC7.2]
   AUTH_DKIM_FAIL: [CC6.6, CC7.2]
   AUTH_DMARC_FAIL: [CC6.6, CC7.2]
+
+  # M5 Stage 1 — intrusion & data-exfiltration detection.
+  BRUTE_FORCE_PASSWORD_SPRAY: [CC6.1, CC7.2]
+  IMPOSSIBLE_TRAVEL: [CC6.1, CC7.2]
+  OFF_HOURS_ACCESS: [CC7.1, CC7.2]
+  MASS_FILE_ACCESS: [CC6.7, CC7.1, CC7.2]
+  DATA_EXFIL_LARGE_TRANSFER: [CC6.6, CC6.7, CC7.2]
+  DATA_EXFIL_LARGE_DB_EXPORT: [CC6.7, CC7.2]
+  PRIVILEGE_ESCALATION: [CC6.2, CC6.3, CC7.2]

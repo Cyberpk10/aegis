@@ -1,0 +1,5 @@
+[
+  {"timestamp": "2026-01-06T02:00:00Z", "actor": "carol@corp.com", "action": "file_access", "target": "finance/q4-report.xlsx", "outcome": "success"},
+  {"timestamp": "2026-01-06T02:05:00Z", "actor": "carol@corp.com", "action": "file_download", "target": "finance/q4-report.xlsx", "outcome": "success"},
+  {"timestamp": "2026-01-06T02:10:00Z", "actor": "carol@corp.com", "action": "db_query", "target": "customers_db", "outcome": "success"}
+]

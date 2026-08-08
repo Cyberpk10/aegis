@@ -189,7 +189,7 @@ def test_framework_coverage_question_routes_and_reflects_seeded_data(client, db_
     assert response.status_code == 200
     result = response.json()["result"]
     assert result["operating_controls"] == 1
-    assert result["total_controls"] == 7
+    assert result["total_controls"] == 13
 
 
 def test_unsupported_question_routes_cleanly(client, db_session, monkeypatch):

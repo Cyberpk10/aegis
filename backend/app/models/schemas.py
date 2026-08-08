@@ -9,6 +9,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.events.schema import ActivityEvent
+
 
 class AuthResultValue(str, Enum):
     PASS = "pass"
@@ -121,7 +123,8 @@ class LabelRequest(BaseModel):
 
 class LabelResponse(BaseModel):
     id: UUID
-    case_id: UUID
+    case_id: UUID | None = None
+    incident_id: UUID | None = None
     analyst_verdict: Verdict
     note: str | None = None
     labeled_by: str
@@ -309,7 +312,8 @@ class RemediationActionRequest(BaseModel):
 
 class RemediationActionResponse(BaseModel):
     id: UUID
-    case_id: UUID
+    case_id: UUID | None = None
+    incident_id: UUID | None = None
     step_id: str
     status: str
     actor: str
@@ -389,3 +393,59 @@ class FinancialRiskResponse(BaseModel):
     detection_counts: RiskDetectionCounts
     assumptions: dict[str, RiskAssumption]
     generated_at: datetime
+
+
+class Finding(BaseModel):
+    """One detection rule firing over a window of activity events (M5 Stage 1) — the
+    intrusion-detection analog of Indicator, with `points` instead of `score` and
+    references to the actual triggering Event rows instead of free-text evidence."""
+
+    id: str
+    category: str
+    title: str
+    description: str
+    severity: Severity
+    points: float
+    evidence_event_ids: list[UUID] = Field(default_factory=list)
+
+
+class IncidentSummary(BaseModel):
+    id: UUID
+    created_at: datetime
+    title: str
+    actor: str
+    verdict: Verdict
+    score: int
+    detection_types: list[str]
+    window_start: datetime
+    window_end: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class IncidentListResponse(BaseModel):
+    items: list[IncidentSummary]
+    total: int
+    page: int
+    page_size: int
+
+
+class IncidentDetailResponse(BaseModel):
+    id: UUID
+    created_at: datetime
+    title: str
+    actor: str
+    verdict: Verdict
+    score: int
+    detection_types: list[str]
+    findings: list[Finding]
+    framework_mappings: dict[str, list[FrameworkControlRef]]
+    window_start: datetime
+    window_end: datetime
+    evidence_events: list[ActivityEvent]
+    latest_label: LabelResponse | None = None
+
+
+class EventBatchResponse(BaseModel):
+    accepted: int
+    incidents_created: list[IncidentSummary]

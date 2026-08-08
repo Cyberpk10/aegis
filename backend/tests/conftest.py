@@ -15,6 +15,7 @@ from app.main import app
 from app.parsing.eml_parser import ParsedEmail, parse_eml
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "emails"
+EVENTS_FIXTURES_DIR = Path(__file__).parent / "fixtures" / "events"
 
 
 @pytest.fixture(autouse=True)
@@ -103,3 +104,27 @@ def parse_fixture():
 @pytest.fixture()
 def labeled_samples() -> dict[str, str]:
     return json.loads((FIXTURES_DIR / "labels.json").read_text())
+
+
+@pytest.fixture()
+def load_events_fixture():
+    def _load(filename: str) -> list[dict]:
+        return json.loads((EVENTS_FIXTURES_DIR / filename).read_text())
+
+    return _load
+
+
+@pytest.fixture()
+def build_event_window():
+    """Loads a JSON event fixture and returns an ActorEventWindow ready for a detection
+    rule's evaluate(), mirroring parse_fixture's role for email indicators."""
+    from app.detections.base import ActorEventWindow
+    from app.events.schema import ActivityEvent
+
+    def _build(filename: str) -> ActorEventWindow:
+        raw_events = json.loads((EVENTS_FIXTURES_DIR / filename).read_text())
+        events = [ActivityEvent.model_validate(e) for e in raw_events]
+        actor = events[0].actor
+        return ActorEventWindow(actor=actor, events=events)
+
+    return _build

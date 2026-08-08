@@ -1,4 +1,4 @@
-version: "1.0"
+version: "1.1"
 framework: "NIST Cybersecurity Framework 2.0"
 framework_key: nist_csf
 source: "https://www.nist.gov/cyberframework"
@@ -14,6 +14,27 @@ controls:
     url: "https://csrc.nist.gov/pubs/csswp/29/the-nist-cybersecurity-framework-20/final"
   - id: DE.AE-02
     name: "Detected events are analyzed to understand attack targets and methods"
+    url: "https://csrc.nist.gov/pubs/csswp/29/the-nist-cybersecurity-framework-20/final"
+  # M5 Stage 1 — intrusion & data-exfiltration detection. Your spec named the CSF 1.1
+  # category "PR.AC" (Access Control); CSF 2.0 renamed that category to "PR.AA" (Identity
+  # Management, Authentication, and Access Control) — PR.AA-03/05 below are the current
+  # subcategories in that renamed family, verified against NIST's published CSF 2.0
+  # subcategory text (csf.tools, cross-referencing NIST CSWP 29) rather than using the
+  # withdrawn "PR.AC-*" ids.
+  - id: DE.CM-03
+    name: "Personnel activity and technology usage are monitored to find potentially adverse events"
+    url: "https://csrc.nist.gov/pubs/csswp/29/the-nist-cybersecurity-framework-20/final"
+  - id: DE.AE-03
+    name: "Information is correlated from multiple sources"
+    url: "https://csrc.nist.gov/pubs/csswp/29/the-nist-cybersecurity-framework-20/final"
+  - id: DE.AE-08
+    name: "Incidents are declared when adverse events meet the defined incident criteria"
+    url: "https://csrc.nist.gov/pubs/csswp/29/the-nist-cybersecurity-framework-20/final"
+  - id: PR.AA-03
+    name: "Users, services, and hardware are authenticated"
+    url: "https://csrc.nist.gov/pubs/csswp/29/the-nist-cybersecurity-framework-20/final"
+  - id: PR.AA-05
+    name: "Access permissions, entitlements, and authorizations are defined in a policy, managed, enforced, and reviewed, and incorporate the principles of least privilege and separation of duties"
     url: "https://csrc.nist.gov/pubs/csswp/29/the-nist-cybersecurity-framework-20/final"
 
 mappings:
@@ -34,3 +55,12 @@ mappings:
   AUTH_SPF_FAIL: [ID.RA-05, DE.AE-02]
   AUTH_DKIM_FAIL: [ID.RA-05, DE.AE-02]
   AUTH_DMARC_FAIL: [ID.RA-05, DE.AE-02]
+
+  # M5 Stage 1 — intrusion & data-exfiltration detection.
+  BRUTE_FORCE_PASSWORD_SPRAY: [DE.CM-03, PR.AA-03, DE.AE-08]
+  IMPOSSIBLE_TRAVEL: [DE.AE-03, PR.AA-03, DE.AE-08]
+  OFF_HOURS_ACCESS: [DE.CM-03, DE.AE-08]
+  MASS_FILE_ACCESS: [DE.CM-03, DE.AE-08]
+  DATA_EXFIL_LARGE_TRANSFER: [DE.CM-01, DE.AE-08]
+  DATA_EXFIL_LARGE_DB_EXPORT: [DE.CM-01, DE.AE-08]
+  PRIVILEGE_ESCALATION: [DE.AE-03, PR.AA-05, DE.AE-08]

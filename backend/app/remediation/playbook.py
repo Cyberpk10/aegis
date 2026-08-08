@@ -94,14 +94,19 @@ class PlaybookStep:
     related_indicator_ids: list[str]
 
 
-def generate_playbook(indicator_ids: list[str]) -> list[PlaybookStep]:
-    """Pure function: the same indicator id set always produces the same steps in the
-    same order, with the same related_indicator_ids (sorted) — this determinism is by
-    design, not incidental."""
+StepRules = tuple[tuple[str, str, str, str, frozenset[str]], ...]
+
+
+def generate_from_rules(indicator_ids: list[str], step_rules: StepRules) -> list[PlaybookStep]:
+    """Pure function: the same indicator id set + rule table always produces the same
+    steps in the same order, with the same related_indicator_ids (sorted) — this
+    determinism is by design, not incidental. Shared by generate_playbook (email,
+    _STEP_RULES) and app.remediation.intrusion_playbook.generate_intrusion_playbook
+    (intrusion findings, its own rule table) so both domains reuse one engine."""
     present = set(indicator_ids)
     steps: list[PlaybookStep] = []
 
-    for step_id, title, description, category, triggers in _STEP_RULES:
+    for step_id, title, description, category, triggers in step_rules:
         matched = sorted(present & triggers)
         if not matched:
             continue
@@ -116,3 +121,7 @@ def generate_playbook(indicator_ids: list[str]) -> list[PlaybookStep]:
         )
 
     return steps
+
+
+def generate_playbook(indicator_ids: list[str]) -> list[PlaybookStep]:
+    return generate_from_rules(indicator_ids, _STEP_RULES)

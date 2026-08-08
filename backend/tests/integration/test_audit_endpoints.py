@@ -45,7 +45,7 @@ def test_get_audit_evidence_reflects_seeded_cases(client, db_session):
     assert response.status_code == 200
     body = response.json()
     assert body["framework_key"] == "mitre_attack"
-    assert body["total_controls"] == 7
+    assert body["total_controls"] == 13
     assert body["operating_controls"] == 2
 
     by_id = {c["control_id"]: c for c in body["controls"]}
@@ -92,7 +92,7 @@ def test_generate_audit_report_persists_row_and_files_matching_evidence(client, 
     assert response.status_code == 200
     body = response.json()
     assert body["framework_key"] == "mitre_attack"
-    assert body["total_controls"] == 7
+    assert body["total_controls"] == 13
     assert body["operating_controls"] == 2
     assert body["total_supporting_cases"] == 2
 
@@ -100,7 +100,7 @@ def test_generate_audit_report_persists_row_and_files_matching_evidence(client, 
     row = db_session.get(AuditReport, report_id)
     assert row is not None
     assert row.framework_key == "mitre_attack"
-    assert row.total_controls == 7
+    assert row.total_controls == 13
     assert row.operating_controls == 2
 
     pdf_path = Path(row.pdf_path)
@@ -111,7 +111,7 @@ def test_generate_audit_report_persists_row_and_files_matching_evidence(client, 
 
     payload = json.loads(json_path.read_text())["aegis_audit_evidence_pack"]
     assert payload["framework_key"] == "mitre_attack"
-    assert payload["integrity"]["total_controls"] == 7
+    assert payload["integrity"]["total_controls"] == 13
     assert payload["integrity"]["operating_controls"] == 2
     assert payload["integrity"]["total_supporting_cases"] == 2
 

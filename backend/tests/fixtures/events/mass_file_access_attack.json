@@ -1,0 +1,156 @@
+[
+  {
+    "timestamp": "2026-01-06T14:00:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-0.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:01:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-1.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:02:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-2.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:03:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-3.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:04:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-4.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:05:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-5.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:06:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-6.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:07:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-7.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:08:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-8.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:09:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-9.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:10:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-10.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:11:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-11.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:12:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-12.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:13:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-13.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:14:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-14.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:15:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-15.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:16:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-16.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:17:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-17.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:18:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-18.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:19:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-19.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:20:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-20.pdf",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-01-06T14:21:00Z",
+    "actor": "dave@corp.com",
+    "action": "file_access",
+    "target": "shared/doc-21.pdf",
+    "outcome": "success"
+  }
+]

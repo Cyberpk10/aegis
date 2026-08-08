@@ -160,7 +160,7 @@ def test_framework_coverage_executor(db_session):
 
     assert result["framework"] == "mitre"
     assert result["operating_controls"] == 1
-    assert result["total_controls"] == 7  # matches mitre_attack.yaml's control count
+    assert result["total_controls"] == 13  # matches mitre_attack.yaml's control count
 
 
 def test_unsupported_question_executor(db_session):

@@ -1,0 +1,5 @@
+[
+  {"timestamp": "2026-01-06T14:00:00Z", "actor": "dave@corp.com", "action": "file_access", "target": "shared/doc-1.pdf", "outcome": "success"},
+  {"timestamp": "2026-01-06T14:05:00Z", "actor": "dave@corp.com", "action": "file_access", "target": "shared/doc-2.pdf", "outcome": "success"},
+  {"timestamp": "2026-01-06T14:10:00Z", "actor": "dave@corp.com", "action": "file_download", "target": "shared/doc-2.pdf", "outcome": "success"}
+]

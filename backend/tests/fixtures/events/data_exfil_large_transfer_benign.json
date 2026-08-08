@@ -1,0 +1,3 @@
+[
+  {"timestamp": "2026-01-06T14:00:00Z", "actor": "erin@corp.com", "action": "data_transfer", "target": "unknown-host.example.net", "bytes": 1000000, "outcome": "success"}
+]

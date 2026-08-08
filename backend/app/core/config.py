@@ -76,5 +76,39 @@ class Settings:
     # the single-email analyst narrative, and a deployer should opt into it independently.
     enable_copilot: bool = field(default_factory=lambda: _env_bool("ENABLE_COPILOT", False))
 
+    # Intrusion & data-exfiltration detection (M5 Stage 1). How far back from an actor's
+    # latest event in an ingest batch the detection engine looks for correlated activity
+    # (brute force, mass access, etc). Anchored to event timestamps, not wall-clock.
+    intrusion_lookback_hours: int = field(
+        default_factory=lambda: int(os.environ.get("INTRUSION_LOOKBACK_HOURS", "24"))
+    )
+    # Static business-hours window (UTC, 24h clock) for the off-hours-access detector.
+    business_hours_start: int = field(
+        default_factory=lambda: int(os.environ.get("BUSINESS_HOURS_START", "8"))
+    )
+    business_hours_end: int = field(
+        default_factory=lambda: int(os.environ.get("BUSINESS_HOURS_END", "18"))
+    )
+    # Data-exfiltration thresholds: a single transfer/download over this many bytes to a
+    # non-allowlisted destination, or a single db_query export over this many bytes, fires.
+    exfil_large_transfer_bytes: int = field(
+        default_factory=lambda: int(os.environ.get("EXFIL_LARGE_TRANSFER_BYTES", str(500_000_000)))
+    )
+    exfil_large_db_export_bytes: int = field(
+        default_factory=lambda: int(
+            os.environ.get("EXFIL_LARGE_DB_EXPORT_BYTES", str(200_000_000))
+        )
+    )
+    # Comma-separated list of transfer/download targets considered "known" destinations
+    # (never flagged as exfiltration regardless of size). Empty by default — everything is
+    # "unfamiliar" until a deployer allowlists their own known-good destinations.
+    exfil_allowlisted_destinations: list[str] = field(
+        default_factory=lambda: [
+            d.strip()
+            for d in os.environ.get("EXFIL_ALLOWLISTED_DESTINATIONS", "").split(",")
+            if d.strip()
+        ]
+    )
+
 
 settings = Settings()

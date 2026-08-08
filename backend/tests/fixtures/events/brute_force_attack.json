@@ -1,0 +1,9 @@
+[
+  {"timestamp": "2026-01-06T10:00:00Z", "actor": "alice@corp.com", "action": "auth_fail", "source_ip": "203.0.113.10", "outcome": "failure"},
+  {"timestamp": "2026-01-06T10:01:00Z", "actor": "alice@corp.com", "action": "auth_fail", "source_ip": "203.0.113.10", "outcome": "failure"},
+  {"timestamp": "2026-01-06T10:02:00Z", "actor": "alice@corp.com", "action": "auth_fail", "source_ip": "203.0.113.10", "outcome": "failure"},
+  {"timestamp": "2026-01-06T10:03:00Z", "actor": "alice@corp.com", "action": "auth_fail", "source_ip": "203.0.113.10", "outcome": "failure"},
+  {"timestamp": "2026-01-06T10:04:00Z", "actor": "alice@corp.com", "action": "auth_fail", "source_ip": "203.0.113.10", "outcome": "failure"},
+  {"timestamp": "2026-01-06T10:05:00Z", "actor": "alice@corp.com", "action": "auth_fail", "source_ip": "203.0.113.10", "outcome": "failure"},
+  {"timestamp": "2026-01-06T10:06:00Z", "actor": "alice@corp.com", "action": "login", "source_ip": "203.0.113.10", "outcome": "success"}
+]

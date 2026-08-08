@@ -5,7 +5,18 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, Uuid, func
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    Uuid,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -45,14 +56,25 @@ class Case(Base):
 
 
 class Label(Base):
-    """An analyst's verdict on a case. Rows are append-only — relabeling inserts a new
-    row rather than updating the old one, so the full labeling history is preserved."""
+    """An analyst's verdict on a case OR an incident (M5 Stage 1 — exactly one of
+    case_id/incident_id is set, enforced by a CHECK constraint). Rows are append-only —
+    relabeling inserts a new row rather than updating the old one, so the full labeling
+    history is preserved."""
 
     __tablename__ = "labels"
+    __table_args__ = (
+        CheckConstraint(
+            "(case_id IS NOT NULL) != (incident_id IS NOT NULL)",
+            name="ck_labels_exactly_one_parent",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    case_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("cases.id", ondelete="CASCADE"), nullable=False
+    case_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("cases.id", ondelete="CASCADE"), nullable=True
+    )
+    incident_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("incidents.id", ondelete="CASCADE"), nullable=True
     )
     analyst_verdict: Mapped[str] = mapped_column(String, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -64,7 +86,8 @@ class Label(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
 
-    case: Mapped[Case] = relationship(back_populates="labels")
+    case: Mapped[Case | None] = relationship(back_populates="labels")
+    incident: Mapped["Incident | None"] = relationship(back_populates="labels")
 
 
 class AuditReport(Base):
@@ -89,17 +112,28 @@ class AuditReport(Base):
 
 
 class RemediationAction(Base):
-    """An operator's approval/completion of a recommended playbook step. Rows are
-    append-only — same audit-trail pattern as Label: re-acting on a step inserts a new
-    row rather than overwriting the previous one, so the full action history is
-    preserved. Aegis never executes the step itself; this only records that a human did.
+    """An operator's approval/completion of a recommended playbook step, for a case OR an
+    incident (M5 Stage 1 — exactly one of case_id/incident_id is set, enforced by a CHECK
+    constraint). Rows are append-only — same audit-trail pattern as Label: re-acting on a
+    step inserts a new row rather than overwriting the previous one, so the full action
+    history is preserved. Aegis never executes the step itself; this only records that a
+    human did.
     """
 
     __tablename__ = "remediation_actions"
+    __table_args__ = (
+        CheckConstraint(
+            "(case_id IS NOT NULL) != (incident_id IS NOT NULL)",
+            name="ck_remediation_actions_exactly_one_parent",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    case_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("cases.id", ondelete="CASCADE"), nullable=False
+    case_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("cases.id", ondelete="CASCADE"), nullable=True
+    )
+    incident_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("incidents.id", ondelete="CASCADE"), nullable=True
     )
     step_id: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)  # "approved" | "done"
@@ -136,3 +170,65 @@ class TrainingRecommendation(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+class Incident(Base):
+    """A persisted intrusion/data-exfiltration detection result (M5 Stage 1) —
+    structurally parallel to Case (verdict/score/findings/framework_mappings) but for
+    activity-event telemetry instead of email. Unlike Case, a row is only created when
+    the fused verdict for an actor's event window is non-safe — see
+    app.api.routes.events.ingest_events; there is no "safe incident" row, since events
+    are continuous telemetry rather than one-artifact-per-analysis."""
+
+    __tablename__ = "incidents"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    actor: Mapped[str] = mapped_column(String, nullable=False)
+    verdict: Mapped[str] = mapped_column(String, nullable=False)
+    score: Mapped[int] = mapped_column(Integer, nullable=False)
+    detection_types: Mapped[list] = mapped_column(_JSONVariant, nullable=False, default=list)
+    findings: Mapped[list] = mapped_column(_JSONVariant, nullable=False, default=list)
+    framework_mappings: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    events: Mapped[list["Event"]] = relationship(back_populates="incident")
+    labels: Mapped[list["Label"]] = relationship(
+        back_populates="incident", cascade="all, delete-orphan"
+    )
+
+
+class Event(Base):
+    """A normalized, source-agnostic activity-log event (login, file access, data
+    transfer, privilege change, etc.) ingested via POST /api/events. `raw` preserves the
+    untouched source payload. `incident_id` is populated post-hoc, only on whichever
+    events ended up cited as evidence for a detection finding — most events are never
+    linked to an incident."""
+
+    __tablename__ = "events"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    # The event's own time (not ingestion time) — all detection windowing is computed
+    # from this, never wall-clock, so replaying historical/fixture data is deterministic.
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    actor: Mapped[str] = mapped_column(String, nullable=False)
+    source_ip: Mapped[str | None] = mapped_column(String, nullable=True)
+    geo: Mapped[dict | None] = mapped_column(_JSONVariant, nullable=True)
+    action: Mapped[str] = mapped_column(String, nullable=False)
+    target: Mapped[str | None] = mapped_column(String, nullable=True)
+    bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    device: Mapped[str | None] = mapped_column(String, nullable=True)
+    outcome: Mapped[str | None] = mapped_column(String, nullable=True)
+    raw: Mapped[dict | None] = mapped_column(_JSONVariant, nullable=True)
+    incident_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True
+    )
+
+    incident: Mapped[Incident | None] = relationship(back_populates="events")

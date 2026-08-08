@@ -1,0 +1,150 @@
+"""POST /api/events — source-agnostic ingestion of normalized activity events, with
+synchronous per-actor detection (M5 Stage 1). Defensive monitoring only: this endpoint
+persists events and, when warranted, an incident case — nothing here blocks, isolates, or
+otherwise alters any external system. An incident is only created when the fused verdict
+for an actor's event window is non-safe (see app.detections/app.scoring.intrusion_risk_engine)
+— events are continuous telemetry, so persisting a "safe" incident per actor per batch would
+flood the incidents table with routine activity.
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import timedelta
+
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.core.config import settings
+from app.db.models import Event, Incident
+from app.db.session import get_db
+from app.detections.base import ActorEventWindow
+from app.detections.engine import run_detections
+from app.events.schema import ActivityEvent, EventBatchRequest
+from app.mapping.framework_mapper import map_indicators
+from app.models.schemas import EventBatchResponse, Finding, IncidentSummary
+from app.scoring.intrusion_risk_engine import fuse
+
+router = APIRouter(prefix="/api/events", tags=["events"])
+
+
+def _persist_event(db: Session, event: ActivityEvent) -> Event:
+    row = Event(
+        id=event.id or uuid.uuid4(),
+        timestamp=event.timestamp,
+        actor=event.actor,
+        source_ip=event.source_ip,
+        geo=event.geo.model_dump(mode="json") if event.geo else None,
+        action=event.action.value,
+        target=event.target,
+        bytes=event.bytes,
+        device=event.device,
+        outcome=event.outcome,
+        raw=event.raw,
+    )
+    db.add(row)
+    return row
+
+
+def _to_activity_event(row: Event) -> ActivityEvent:
+    return ActivityEvent(
+        id=row.id,
+        timestamp=row.timestamp,
+        actor=row.actor,
+        source_ip=row.source_ip,
+        geo=row.geo,
+        action=row.action,
+        target=row.target,
+        bytes=row.bytes,
+        device=row.device,
+        outcome=row.outcome,
+        raw=row.raw,
+    )
+
+
+def _incident_title(actor: str, findings: list[Finding]) -> str:
+    # Findings are already in deterministic order (app.detections.engine's fixed _RULES
+    # order) — the first is treated as the "primary" detection for the incident title.
+    return f"{findings[0].title} — {actor}"
+
+
+@router.post("", response_model=EventBatchResponse)
+async def ingest_events(
+    body: EventBatchRequest, db: Session = Depends(get_db)
+) -> EventBatchResponse:
+    persisted_rows = [_persist_event(db, event) for event in body.events]
+    db.flush()
+
+    actors = sorted({row.actor for row in persisted_rows})
+    lookback = timedelta(hours=settings.intrusion_lookback_hours)
+    incidents_created: list[IncidentSummary] = []
+
+    for actor in actors:
+        actor_batch_rows = [row for row in persisted_rows if row.actor == actor]
+        window_end = max(row.timestamp for row in actor_batch_rows)
+        window_start = window_end - lookback
+
+        window_rows = (
+            db.query(Event)
+            .filter(
+                Event.actor == actor,
+                Event.timestamp >= window_start,
+                Event.timestamp <= window_end,
+            )
+            .order_by(Event.timestamp)
+            .all()
+        )
+
+        window = ActorEventWindow(
+            actor=actor, events=[_to_activity_event(row) for row in window_rows]
+        )
+        findings = run_detections(window)
+        score, verdict = fuse(findings)
+
+        if verdict.value == "safe":
+            continue
+
+        framework_mappings = map_indicators([f.id for f in findings])
+
+        incident = Incident(
+            id=uuid.uuid4(),
+            title=_incident_title(actor, findings),
+            actor=actor,
+            verdict=verdict.value,
+            score=score,
+            detection_types=sorted({f.id for f in findings}),
+            findings=[f.model_dump(mode="json") for f in findings],
+            framework_mappings={
+                key: [ref.model_dump(mode="json") for ref in refs]
+                for key, refs in framework_mappings.items()
+            },
+            window_start=window_start,
+            window_end=window_end,
+        )
+        db.add(incident)
+        db.flush()
+        db.refresh(incident)
+
+        evidence_ids = {eid for f in findings for eid in f.evidence_event_ids}
+        if evidence_ids:
+            db.query(Event).filter(Event.id.in_(evidence_ids)).update(
+                {"incident_id": incident.id}, synchronize_session=False
+            )
+
+        incidents_created.append(
+            IncidentSummary(
+                id=incident.id,
+                created_at=incident.created_at,
+                title=incident.title,
+                actor=incident.actor,
+                verdict=verdict,
+                score=score,
+                detection_types=incident.detection_types,
+                window_start=window_start,
+                window_end=window_end,
+            )
+        )
+
+    db.commit()
+
+    return EventBatchResponse(accepted=len(persisted_rows), incidents_created=incidents_created)

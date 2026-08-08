@@ -79,7 +79,8 @@ export interface CaseListResponse {
 
 export interface Label {
   id: string;
-  case_id: string;
+  case_id: string | null;
+  incident_id: string | null;
   analyst_verdict: Verdict;
   note: string | null;
   labeled_by: string;
@@ -303,4 +304,86 @@ export interface FinancialRiskResponse {
   detection_counts: RiskDetectionCounts;
   assumptions: Record<string, RiskAssumption>;
   generated_at: string;
+}
+
+export type EventAction =
+  | "login"
+  | "logout"
+  | "auth_fail"
+  | "file_access"
+  | "file_download"
+  | "db_query"
+  | "privilege_change"
+  | "config_change"
+  | "data_transfer";
+
+export interface GeoLocation {
+  country: string | null;
+  region: string | null;
+  lat: number | null;
+  lon: number | null;
+}
+
+export interface ActivityEvent {
+  id: string | null;
+  timestamp: string;
+  actor: string;
+  source_ip: string | null;
+  geo: GeoLocation | null;
+  action: EventAction;
+  target: string | null;
+  bytes: number | null;
+  device: string | null;
+  outcome: string | null;
+  raw: Record<string, unknown> | null;
+}
+
+export interface Finding {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  severity: Severity;
+  points: number;
+  evidence_event_ids: string[];
+}
+
+export interface IncidentSummary {
+  id: string;
+  created_at: string;
+  title: string;
+  actor: string;
+  verdict: Verdict;
+  score: number;
+  detection_types: string[];
+  window_start: string;
+  window_end: string;
+}
+
+export interface IncidentListResponse {
+  items: IncidentSummary[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface IncidentDetail {
+  id: string;
+  created_at: string;
+  title: string;
+  actor: string;
+  verdict: Verdict;
+  score: number;
+  detection_types: string[];
+  findings: Finding[];
+  framework_mappings: Record<string, FrameworkControlRef[]>;
+  window_start: string;
+  window_end: string;
+  evidence_events: ActivityEvent[];
+  latest_label: Label | null;
+}
+
+export interface EventBatchResponse {
+  accepted: number;
+  incidents_created: IncidentSummary[];
 }

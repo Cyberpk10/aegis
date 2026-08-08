@@ -10,15 +10,29 @@ const STATUS_STYLES: Record<string, string> = {
 
 interface ResponsePlaybookPanelProps {
   caseId: string;
+  // Defaults to the email-case endpoints (/api/cases/...) so existing CaseDetail usage
+  // is unchanged. IncidentDetail passes the incident-bound functions
+  // (getIncidentRemediationPlaybook/submitIncidentRemediationAction) so this same panel
+  // is reused for incidents (M5 Stage 1) rather than duplicated.
+  fetchPlaybook?: (entityId: string) => Promise<RemediationPlaybook>;
+  submitAction?: (
+    entityId: string,
+    stepId: string,
+    params: { status: "approved" | "done"; note?: string }
+  ) => Promise<void>;
 }
 
-export default function ResponsePlaybookPanel({ caseId }: ResponsePlaybookPanelProps) {
+export default function ResponsePlaybookPanel({
+  caseId,
+  fetchPlaybook = getRemediationPlaybook,
+  submitAction = submitRemediationAction,
+}: ResponsePlaybookPanelProps) {
   const [playbook, setPlaybook] = useState<RemediationPlaybook | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actingStepId, setActingStepId] = useState<string | null>(null);
 
   const load = () => {
-    getRemediationPlaybook(caseId)
+    fetchPlaybook(caseId)
       .then((data) => setPlaybook(data))
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load playbook."));
   };
@@ -34,7 +48,7 @@ export default function ResponsePlaybookPanel({ caseId }: ResponsePlaybookPanelP
     setActingStepId(step.step_id);
     setError(null);
     try {
-      await submitRemediationAction(caseId, step.step_id, { status });
+      await submitAction(caseId, step.step_id, { status });
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to record action.");

@@ -1,0 +1,4 @@
+[
+  {"timestamp": "2026-01-06T09:00:00Z", "actor": "bob@corp.com", "action": "login", "outcome": "success", "source_ip": "198.51.100.1", "geo": {"country": "US", "region": "NY", "lat": 40.7128, "lon": -74.0060}},
+  {"timestamp": "2026-01-06T09:30:00Z", "actor": "bob@corp.com", "action": "login", "outcome": "success", "source_ip": "198.51.100.99", "geo": {"country": "RU", "region": "Moscow", "lat": 55.7558, "lon": 37.6173}}
+]
