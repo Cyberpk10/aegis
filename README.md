@@ -9,6 +9,8 @@ Aegis performs **analysis only**: it does not send email, does not exploit anyth
 make outbound network/DNS calls. SPF/DKIM/DMARC results are parsed from the email's existing
 `Authentication-Results` header rather than independently re-verified.
 
+See [DEPLOYMENT.md](DEPLOYMENT.md) for deploying to production (Render backend + Vercel frontend).
+
 ## Milestone 1 scope
 
 - Parse `.eml` headers, including SPF/DKIM/DMARC authentication results.

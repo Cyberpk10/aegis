@@ -1,0 +1,41 @@
+# Render Blueprint (M8 Stage 1) — "New +" -> "Blueprint" in the Render dashboard, pointed at
+# this repo, provisions both resources below in one step. See DEPLOYMENT.md for the full
+# step-by-step walkthrough, including the manual (non-Blueprint) equivalent if this file's
+# schema drifts from what your Render account's dashboard expects — Render's blueprint syntax
+# has changed over time, so if the Blueprint import fails to parse, create the two resources by
+# hand instead and set the env vars below directly.
+
+databases:
+  - name: aegis-db
+    plan: basic-256mb
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: aegis-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      # Auto-wired from the aegis-db resource above — no manual connection-string copying.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aegis-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      # Set after the Vercel frontend is deployed and its URL is known (see DEPLOYMENT.md) —
+      # `sync: false` means Render prompts you for a value instead of using a default.
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      # Optional — only needed if you want the LLM analyst narrative / copilot in production.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ENABLE_LLM_REASONING
+        value: "false"
+      - key: ENABLE_COPILOT
+        value: "false"

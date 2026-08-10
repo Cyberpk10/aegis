@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.api.routes.analyze import router as analyze_router
 from app.api.routes.audit import router as audit_router
@@ -23,8 +27,13 @@ from app.api.routes.remediation import incidents_router as remediation_incidents
 from app.api.routes.remediation import targets_router as targets_router
 from app.api.routes.risk import router as risk_router
 from app.core.config import settings
-from app.db.session import Base, engine
+from app.db.session import Base, engine, get_db
 from app.storage.raw_email_store import purge_expired
+
+logging.basicConfig(
+    level=settings.log_level,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 
 @asynccontextmanager
@@ -43,6 +52,13 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Gated to production only — HTTPSRedirectMiddleware would otherwise break local
+# http://localhost dev. Relies on the ASGI server trusting X-Forwarded-Proto from the
+# platform's TLS-terminating proxy (uvicorn's --proxy-headers, see docker-entrypoint.sh) —
+# without that, Starlette can't see the real scheme and this would redirect-loop.
+if settings.environment == "production":
+    app.add_middleware(HTTPSRedirectMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -70,5 +86,11 @@ app.include_router(messages_router)
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
+async def health(db: Session = Depends(get_db)) -> dict[str, str]:
+    """Liveness + readiness: also confirms the database is actually reachable, so a deploy
+    doesn't report healthy while the DB is down."""
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001 - surface any DB failure as a 503, not a 500
+        raise HTTPException(status_code=503, detail=f"Database unavailable: {exc}") from exc
     return {"status": "ok"}

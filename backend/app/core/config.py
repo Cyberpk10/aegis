@@ -25,8 +25,18 @@ def _env_bool(name: str, default: bool) -> bool:
 
 @dataclass
 class Settings:
+    # M8 Stage 1 (production hosting). "development" locally by default; Render sets this to
+    # "production", which gates HTTPS enforcement in app.main.
+    environment: str = field(default_factory=lambda: os.environ.get("ENVIRONMENT", "development"))
+    log_level: str = field(default_factory=lambda: os.environ.get("LOG_LEVEL", "INFO"))
+
+    # Comma-separated allowed CORS origins, e.g. the deployed Vercel URL in production. Falls
+    # back to the local Vite dev server origins when unset, so local dev is unaffected.
     cors_origins: list[str] = field(
-        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"]
+        default_factory=lambda: [
+            o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()
+        ]
+        or ["http://localhost:5173", "http://127.0.0.1:5173"]
     )
     max_upload_bytes: int = 10 * 1024 * 1024  # 10 MiB
 
