@@ -1,0 +1,12 @@
+{
+  "channel_type": "im",
+  "channel_name": "DM",
+  "user": {
+    "display_name": "IT Support",
+    "real_name": "IT Support",
+    "email": "it-support@external-vendor.example",
+    "is_external": true
+  },
+  "text": "URGENT: your account will be suspended. Verify your account immediately: http://bit.ly/verify-now-123",
+  "ts": "1735689601.000100"
+}

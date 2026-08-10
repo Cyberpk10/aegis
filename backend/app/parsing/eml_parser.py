@@ -8,50 +8,24 @@ already exist on the message.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
 from email import policy
-from email.message import Message
+from email.message import Message as EmailMessage
 from email.parser import BytesParser
 from email.utils import getaddresses, parseaddr
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
 
-from app.models.schemas import AuthResults
+from app.channels.message import Attachment, Channel, Link, Message
 from app.parsing.auth_results import parse_authentication_results
 
 _URL_RE = re.compile(r"https?://[^\s<>\"'()]+", re.IGNORECASE)
 
 _MACRO_ENABLED_EXTENSIONS = {".docm", ".xlsm", ".pptm", ".dotm", ".xltm", ".potm"}
 
-
-@dataclass
-class Link:
-    display_text: str
-    href: str
-    href_domain: str | None
-
-
-@dataclass
-class Attachment:
-    filename: str
-    content_type: str | None
-    size_bytes: int
-
-
-@dataclass
-class ParsedEmail:
-    headers: dict[str, str] = field(default_factory=dict)
-    from_display: str | None = None
-    from_address: str | None = None
-    reply_to_address: str | None = None
-    to_addresses: list[str] = field(default_factory=list)
-    subject: str | None = None
-    date: str | None = None
-    auth_results: AuthResults = field(default_factory=AuthResults)
-    body_text: str = ""
-    body_html: str = ""
-    links: list[Link] = field(default_factory=list)
-    attachments: list[Attachment] = field(default_factory=list)
+# Backward-compat alias — every existing indicator/test constructs `ParsedEmail(...)` and
+# imports it from this module; Message *is* ParsedEmail generalized to other channels, not a
+# separate type, so this alias means none of those call sites need to change.
+ParsedEmail = Message
 
 
 class _LinkExtractor(HTMLParser):
@@ -125,7 +99,7 @@ def _extract_links(body_html: str, body_text: str) -> list[Link]:
     return links
 
 
-def _walk_body_and_attachments(msg: Message) -> tuple[str, str, list[Attachment]]:
+def _walk_body_and_attachments(msg: EmailMessage) -> tuple[str, str, list[Attachment]]:
     body_text_parts: list[str] = []
     body_html_parts: list[str] = []
     attachments: list[Attachment] = []
@@ -179,6 +153,7 @@ def parse_eml(raw_bytes: bytes) -> ParsedEmail:
     links = _extract_links(body_html, body_text)
 
     return ParsedEmail(
+        channel=Channel.EMAIL,
         headers=headers,
         from_display=from_display or None,
         from_address=from_address or None,

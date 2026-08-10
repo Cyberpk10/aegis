@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Callable
 
 from app.models.schemas import Indicator, Severity
-from app.parsing.eml_parser import ParsedEmail
+from app.channels.message import Message
 
 # Each rule module exposes a top-level `evaluate(email) -> list[Indicator]` matching this shape.
-IndicatorRule = Callable[[ParsedEmail], list[Indicator]]
+IndicatorRule = Callable[[Message], list[Indicator]]
 
 
 def make_indicator(

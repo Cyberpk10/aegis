@@ -16,6 +16,7 @@ from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.events import router as events_router
 from app.api.routes.incidents import router as incidents_router
 from app.api.routes.labels import router as labels_router
+from app.api.routes.messages import router as messages_router
 from app.api.routes.monitoring import router as monitoring_router
 from app.api.routes.remediation import cases_router as remediation_cases_router
 from app.api.routes.remediation import incidents_router as remediation_incidents_router
@@ -65,6 +66,7 @@ app.include_router(incidents_router)
 app.include_router(remediation_incidents_router)
 app.include_router(autonomy_router)
 app.include_router(monitoring_router)
+app.include_router(messages_router)
 
 
 @app.get("/health")

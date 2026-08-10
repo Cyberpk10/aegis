@@ -60,10 +60,13 @@ export interface AnalyzeResponse {
   analyst_model: string | null;
 }
 
+export type MessageChannel = "email" | "slack" | "teams";
+
 export interface CaseSummary {
   id: string;
   created_at: string;
   filename: string;
+  channel: MessageChannel;
   verdict: Verdict;
   score: number;
   from_addr: string | null;
@@ -91,6 +94,7 @@ export interface CaseDetail {
   id: string;
   created_at: string;
   filename: string;
+  channel: MessageChannel;
   verdict: Verdict;
   score: number;
   from_addr: string | null;

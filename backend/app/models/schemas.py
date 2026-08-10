@@ -95,12 +95,58 @@ class AnalyzeResponse(BaseModel):
     analyst_model: str | None = None
 
 
+class ChatMessageSummary(BaseModel):
+    """The `summary` shape for a chat (Slack/Teams) analyze response — EmailSummary's
+    email-only fields (reply_to_address, auth_results) don't apply here."""
+
+    channel: Literal["slack", "teams"]
+    channel_name: str | None = None
+    from_display: str | None = None
+    from_address: str | None = None
+    is_direct_message: bool = False
+    link_count: int = 0
+    mentions_count: int = 0
+
+
+class MessageAnalyzeResponse(BaseModel):
+    id: UUID
+    created_at: datetime
+    verdict: Verdict
+    score: int
+    summary: ChatMessageSummary
+    indicators: list[Indicator]
+    framework_mappings: dict[str, list[FrameworkControlRef]]
+
+
+class MessageLinkInput(BaseModel):
+    display_text: str
+    href: str
+
+
+class MessageAnalyzeRequest(BaseModel):
+    """An already-normalized chat message — the same shape
+    app.channels.slack_adapter.normalize_slack_message / teams_adapter.normalize_teams_message
+    produce. Source-agnostic: a caller runs the adapter first, then POSTs this."""
+
+    channel: Literal["slack", "teams"]
+    channel_name: str | None = None
+    from_display: str | None = None
+    from_address: str | None = None
+    is_direct_message: bool = False
+    is_external_sender: bool = False
+    text: str
+    links: list[MessageLinkInput] = Field(default_factory=list)
+    mentions: list[str] = Field(default_factory=list)
+    timestamp: datetime | None = None
+
+
 class CaseSummary(BaseModel):
     """A single row in the paginated case list."""
 
     id: UUID
     created_at: datetime
     filename: str
+    channel: str = "email"
     verdict: Verdict
     score: int
     from_addr: str | None = None
@@ -140,6 +186,7 @@ class CaseDetailResponse(BaseModel):
     id: UUID
     created_at: datetime
     filename: str
+    channel: str = "email"
     verdict: Verdict
     score: int
     from_addr: str | None = None

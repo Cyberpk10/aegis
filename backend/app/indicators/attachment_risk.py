@@ -6,7 +6,7 @@ import re
 
 from app.indicators.base import make_indicator
 from app.models.schemas import Indicator, Severity
-from app.parsing.eml_parser import ParsedEmail
+from app.channels.message import Message
 from app.parsing.eml_parser import is_macro_enabled_filename
 
 _RISKY_EXTENSIONS = {
@@ -25,7 +25,7 @@ def _extension(filename: str) -> str:
     return "." + filename.rsplit(".", 1)[-1].lower()
 
 
-def evaluate(email: ParsedEmail) -> list[Indicator]:
+def evaluate(email: Message) -> list[Indicator]:
     risky_evidence: list[str] = []
     double_ext_evidence: list[str] = []
     macro_evidence: list[str] = []

@@ -19,7 +19,7 @@ import statistics
 
 from app.indicators.base import make_indicator
 from app.models.schemas import Indicator, Severity
-from app.parsing.eml_parser import ParsedEmail
+from app.channels.message import Message
 
 _MIN_SENTENCES_FOR_BURSTINESS = 3
 _MIN_PARAGRAPHS_FOR_REGULARITY = 2
@@ -132,7 +132,7 @@ def _check_generic_fluent_no_idiosyncrasy(text: str) -> tuple[bool, str | None]:
     )
 
 
-def evaluate(email: ParsedEmail) -> list[Indicator]:
+def evaluate(email: Message) -> list[Indicator]:
     body_text = email.body_text or ""
     full_text = " ".join(filter(None, [email.subject, body_text]))
 

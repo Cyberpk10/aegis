@@ -39,6 +39,7 @@ def _to_case_detail(case: Case, latest_label: Label | None) -> CaseDetailRespons
         id=case.id,
         created_at=case.created_at,
         filename=case.filename,
+        channel=case.channel,
         verdict=case.verdict,
         score=case.score,
         from_addr=case.from_addr,
@@ -57,12 +58,15 @@ async def list_cases(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     verdict: Verdict | None = None,
+    channel: str | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
 ) -> CaseListResponse:
     query = db.query(Case)
     if verdict is not None:
         query = query.filter(Case.verdict == verdict.value)
+    if channel is not None:
+        query = query.filter(Case.channel == channel)
     if date_from is not None:
         query = query.filter(Case.created_at >= date_from)
     if date_to is not None:

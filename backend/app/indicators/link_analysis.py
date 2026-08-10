@@ -7,7 +7,7 @@ import re
 from app.indicators.base import make_indicator
 from app.indicators.domain_utils import is_ip_literal_host, registrable_domain
 from app.models.schemas import Indicator, Severity
-from app.parsing.eml_parser import ParsedEmail
+from app.channels.message import Message
 
 _KNOWN_SHORTENERS = {
     "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly",
@@ -38,7 +38,7 @@ def _display_text_domain(display_text: str) -> str | None:
     return stripped.lower()
 
 
-def evaluate(email: ParsedEmail) -> list[Indicator]:
+def evaluate(email: Message) -> list[Indicator]:
     mismatch_evidence: list[str] = []
     shortener_evidence: list[str] = []
     suspicious_tld_evidence: list[str] = []

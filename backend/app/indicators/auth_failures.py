@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.indicators.base import make_indicator
 from app.models.schemas import AuthResultValue, Indicator, Severity
-from app.parsing.eml_parser import ParsedEmail
+from app.channels.message import Message
 
 _FAILING_RESULTS = {AuthResultValue.FAIL, AuthResultValue.SOFTFAIL, AuthResultValue.PERMERROR}
 
@@ -15,7 +15,7 @@ _CHECKS = [
 ]
 
 
-def evaluate(email: ParsedEmail) -> list[Indicator]:
+def evaluate(email: Message) -> list[Indicator]:
     indicators: list[Indicator] = []
     auth = email.auth_results
 

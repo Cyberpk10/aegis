@@ -1,0 +1,16 @@
+{
+  "from": {
+    "user": {
+      "displayName": "Alice Smith",
+      "userIdentityType": "aadUser",
+      "email": "alice@corp.com"
+    }
+  },
+  "body": {
+    "contentType": "text",
+    "content": "Good morning team! Standup in 10 minutes."
+  },
+  "mentions": [],
+  "channelIdentity": {"channelId": "19:general@thread.tacv2"},
+  "createdDateTime": "2026-01-01T09:00:00Z"
+}

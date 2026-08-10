@@ -1,0 +1,16 @@
+{
+  "from": {
+    "user": {
+      "displayName": "Bob Jones",
+      "userIdentityType": "aadUser",
+      "email": "bob@corp.com"
+    }
+  },
+  "body": {
+    "contentType": "text",
+    "content": "check this out, free stuff -> http://192.168.1.5/download"
+  },
+  "mentions": [],
+  "channelIdentity": {"channelId": "19:random@thread.tacv2"},
+  "createdDateTime": "2026-01-01T09:02:00Z"
+}

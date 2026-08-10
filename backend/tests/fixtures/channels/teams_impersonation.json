@@ -1,0 +1,16 @@
+{
+  "from": {
+    "user": {
+      "displayName": "Jane CEO",
+      "userIdentityType": "guest",
+      "email": "jane.ceo@totally-not-corp.example"
+    }
+  },
+  "body": {
+    "contentType": "text",
+    "content": "Hey, are you at your desk? I need a quick favor."
+  },
+  "mentions": [],
+  "chatId": "19:def456@thread.v2",
+  "createdDateTime": "2026-01-01T09:03:00Z"
+}

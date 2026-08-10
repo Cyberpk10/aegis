@@ -1,0 +1,12 @@
+{
+  "channel_type": "channel",
+  "channel_name": "random",
+  "user": {
+    "display_name": "bob",
+    "real_name": "Bob Jones",
+    "email": "bob@corp.com",
+    "is_external": false
+  },
+  "text": "check this out, free stuff -> http://192.168.1.5/download",
+  "ts": "1735689602.000100"
+}

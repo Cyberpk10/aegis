@@ -6,6 +6,7 @@ from app.indicators import (
     ai_authored,
     attachment_risk,
     auth_failures,
+    chat_context,
     credential_payment,
     link_analysis,
     lookalike_domain,
@@ -14,7 +15,7 @@ from app.indicators import (
 )
 from app.indicators.base import IndicatorRule
 from app.models.schemas import Indicator
-from app.parsing.eml_parser import ParsedEmail
+from app.channels.message import Message
 
 _RULES: list[IndicatorRule] = [
     sender_mismatch.evaluate,
@@ -25,10 +26,11 @@ _RULES: list[IndicatorRule] = [
     attachment_risk.evaluate,
     auth_failures.evaluate,
     ai_authored.evaluate,
+    chat_context.evaluate,
 ]
 
 
-def run_indicators(email: ParsedEmail) -> list[Indicator]:
+def run_indicators(email: Message) -> list[Indicator]:
     indicators: list[Indicator] = []
     for rule in _RULES:
         indicators.extend(rule(email))

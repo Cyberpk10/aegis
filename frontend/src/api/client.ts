@@ -19,6 +19,7 @@ import type {
   IncidentDetail,
   IncidentListResponse,
   Label,
+  MessageChannel,
   RemediationPlaybook,
   TargetsListResponse,
   Verdict,
@@ -51,6 +52,7 @@ export interface ListCasesParams {
   page?: number;
   pageSize?: number;
   verdict?: Verdict | "";
+  channel?: MessageChannel | "";
   dateFrom?: string;
   dateTo?: string;
 }
@@ -60,6 +62,7 @@ export async function getCases(params: ListCasesParams = {}): Promise<CaseListRe
   query.set("page", String(params.page ?? 1));
   query.set("page_size", String(params.pageSize ?? 20));
   if (params.verdict) query.set("verdict", params.verdict);
+  if (params.channel) query.set("channel", params.channel);
   if (params.dateFrom) query.set("date_from", params.dateFrom);
   if (params.dateTo) query.set("date_to", params.dateTo);
 

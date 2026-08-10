@@ -15,7 +15,7 @@ import yaml
 from app.indicators.base import make_indicator
 from app.indicators.domain_utils import levenshtein, registrable_domain
 from app.models.schemas import Indicator, Severity
-from app.parsing.eml_parser import ParsedEmail
+from app.channels.message import Message
 
 _BRANDS_PATH = Path(__file__).parent / "data" / "brands.yaml"
 
@@ -50,7 +50,7 @@ def _is_punycode(domain: str) -> bool:
     return any(label.startswith("xn--") for label in domain.split("."))
 
 
-def _candidate_domains(email: ParsedEmail) -> set[str]:
+def _candidate_domains(email: Message) -> set[str]:
     domains: set[str] = set()
     if email.from_address and "@" in email.from_address:
         domains.add(email.from_address.rsplit("@", 1)[-1].lower())
@@ -60,7 +60,7 @@ def _candidate_domains(email: ParsedEmail) -> set[str]:
     return domains
 
 
-def evaluate(email: ParsedEmail) -> list[Indicator]:
+def evaluate(email: Message) -> list[Indicator]:
     indicators: list[Indicator] = []
     brands = _load_brands()
     brand_domains = {domain for _, domain in brands}

@@ -182,5 +182,24 @@ class Settings:
         default_factory=lambda: float(os.environ.get("MONITORING_COVERAGE_DROP_THRESHOLD", "0.10"))
     )
 
+    # Multi-channel detection (M7 Stage B). Display names considered protected against
+    # impersonation by an external chat sender — comma-separated, empty by default (same
+    # sensible-default-list pattern as exfil_allowlisted_destinations/autonomy exclusions).
+    chat_protected_display_names: list[str] = field(
+        default_factory=lambda: [
+            n.strip()
+            for n in os.environ.get("CHAT_PROTECTED_DISPLAY_NAMES", "").split(",")
+            if n.strip()
+        ]
+    )
+    # Live Slack/Teams ingestion is not implemented yet (see app.channels.slack_client /
+    # teams_client) — these flags exist as the seam for when it is, off by default.
+    enable_live_slack_ingestion: bool = field(
+        default_factory=lambda: _env_bool("ENABLE_LIVE_SLACK_INGESTION", False)
+    )
+    enable_live_teams_ingestion: bool = field(
+        default_factory=lambda: _env_bool("ENABLE_LIVE_TEAMS_INGESTION", False)
+    )
+
 
 settings = Settings()

@@ -7,7 +7,7 @@ import re
 from app.indicators.base import make_indicator
 from app.indicators.domain_utils import registrable_domain
 from app.models.schemas import Indicator, Severity
-from app.parsing.eml_parser import ParsedEmail
+from app.channels.message import Message
 
 _EMAIL_IN_TEXT_RE = re.compile(r"[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}")
 
@@ -18,7 +18,7 @@ def _domain(address: str | None) -> str | None:
     return address.rsplit("@", 1)[-1].lower()
 
 
-def evaluate(email: ParsedEmail) -> list[Indicator]:
+def evaluate(email: Message) -> list[Indicator]:
     indicators: list[Indicator] = []
 
     from_domain = _domain(email.from_address)

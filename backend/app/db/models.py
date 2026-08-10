@@ -39,6 +39,9 @@ class Case(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     filename: Mapped[str] = mapped_column(String, nullable=False)
+    # "email" | "slack" | "teams" (app.channels.message.Channel) — M7 Stage B. Defaults to
+    # "email" so every pre-existing row and the email analyze path are unaffected.
+    channel: Mapped[str] = mapped_column(String, nullable=False, default="email", server_default="email")
     verdict: Mapped[str] = mapped_column(String, nullable=False)
     score: Mapped[int] = mapped_column(Integer, nullable=False)
     from_addr: Mapped[str | None] = mapped_column(String, nullable=True)

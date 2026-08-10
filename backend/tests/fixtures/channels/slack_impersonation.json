@@ -1,0 +1,12 @@
+{
+  "channel_type": "im",
+  "channel_name": "DM",
+  "user": {
+    "display_name": "Jane CEO",
+    "real_name": "Jane CEO",
+    "email": "jane.ceo@totally-not-corp.example",
+    "is_external": true
+  },
+  "text": "Hey, are you at your desk? I need a quick favor.",
+  "ts": "1735689603.000100"
+}

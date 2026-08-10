@@ -1,0 +1,12 @@
+{
+  "channel_type": "channel",
+  "channel_name": "general",
+  "user": {
+    "display_name": "alice",
+    "real_name": "Alice Smith",
+    "email": "alice@corp.com",
+    "is_external": false
+  },
+  "text": "Good morning team! Standup in 10 minutes.",
+  "ts": "1735689600.000100"
+}

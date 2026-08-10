@@ -1,0 +1,16 @@
+{
+  "from": {
+    "user": {
+      "displayName": "IT Support",
+      "userIdentityType": "guest",
+      "email": "it-support@external-vendor.example"
+    }
+  },
+  "body": {
+    "contentType": "text",
+    "content": "URGENT: your account will be suspended. Verify your account immediately: http://bit.ly/verify-now-123"
+  },
+  "mentions": [],
+  "chatId": "19:abc123@thread.v2",
+  "createdDateTime": "2026-01-01T09:01:00Z"
+}

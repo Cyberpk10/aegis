@@ -6,7 +6,7 @@ import re
 
 from app.indicators.base import make_indicator
 from app.models.schemas import Indicator, Severity
-from app.parsing.eml_parser import ParsedEmail
+from app.channels.message import Message
 
 _URGENCY_PHRASES = [
     r"act now",
@@ -33,7 +33,7 @@ _SCORE_PER_MATCH = 4
 _MAX_SCORE = 16
 
 
-def evaluate(email: ParsedEmail) -> list[Indicator]:
+def evaluate(email: Message) -> list[Indicator]:
     text = " ".join(filter(None, [email.subject, email.body_text]))
     matches = sorted({m.group(0).strip().lower() for m in _PATTERN.finditer(text)})
 

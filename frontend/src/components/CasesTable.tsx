@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getCases } from "../api/client";
-import type { CaseSummary, Verdict } from "../types/analysis";
+import type { CaseSummary, MessageChannel, Verdict } from "../types/analysis";
+import ChannelBadge from "./ChannelBadge";
 import VerdictBadge from "./VerdictBadge";
 
 const PAGE_SIZE = 20;
@@ -10,6 +11,13 @@ const VERDICT_OPTIONS: { label: string; value: Verdict | "" }[] = [
   { label: "Safe", value: "safe" },
   { label: "Suspicious", value: "suspicious" },
   { label: "Malicious", value: "malicious" },
+];
+
+const CHANNEL_OPTIONS: { label: string; value: MessageChannel | "" }[] = [
+  { label: "All channels", value: "" },
+  { label: "Email", value: "email" },
+  { label: "Slack", value: "slack" },
+  { label: "Teams", value: "teams" },
 ];
 
 interface CasesTableProps {
@@ -22,6 +30,7 @@ export default function CasesTable({ onSelectCase, refreshToken }: CasesTablePro
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [verdict, setVerdict] = useState<Verdict | "">("");
+  const [channel, setChannel] = useState<MessageChannel | "">("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -36,6 +45,7 @@ export default function CasesTable({ onSelectCase, refreshToken }: CasesTablePro
       page,
       pageSize: PAGE_SIZE,
       verdict,
+      channel,
       dateFrom: dateFrom ? `${dateFrom}T00:00:00` : undefined,
       dateTo: dateTo ? `${dateTo}T23:59:59` : undefined,
     })
@@ -56,7 +66,7 @@ export default function CasesTable({ onSelectCase, refreshToken }: CasesTablePro
     return () => {
       cancelled = true;
     };
-  }, [page, verdict, dateFrom, dateTo, refreshToken]);
+  }, [page, verdict, channel, dateFrom, dateTo, refreshToken]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -74,6 +84,23 @@ export default function CasesTable({ onSelectCase, refreshToken }: CasesTablePro
             className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700"
           >
             {VERDICT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-slate-600">
+          Channel
+          <select
+            value={channel}
+            onChange={(event) => {
+              setPage(1);
+              setChannel(event.target.value as MessageChannel | "");
+            }}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700"
+          >
+            {CHANNEL_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -117,6 +144,7 @@ export default function CasesTable({ onSelectCase, refreshToken }: CasesTablePro
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3 font-medium">Verdict / Score</th>
+              <th className="px-4 py-3 font-medium">Channel</th>
               <th className="px-4 py-3 font-medium">Sender</th>
               <th className="px-4 py-3 font-medium">Subject</th>
               <th className="px-4 py-3 font-medium">Date</th>
@@ -132,6 +160,9 @@ export default function CasesTable({ onSelectCase, refreshToken }: CasesTablePro
                 <td className="px-4 py-3">
                   <VerdictBadge verdict={item.verdict} score={item.score} />
                 </td>
+                <td className="px-4 py-3">
+                  <ChannelBadge channel={item.channel} />
+                </td>
                 <td className="px-4 py-3 text-slate-600">{item.from_addr ?? "—"}</td>
                 <td className="px-4 py-3 text-slate-600">{item.subject ?? item.filename}</td>
                 <td className="px-4 py-3 text-slate-500">
@@ -141,7 +172,7 @@ export default function CasesTable({ onSelectCase, refreshToken }: CasesTablePro
             ))}
             {!isLoading && items.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
                   No cases match these filters.
                 </td>
               </tr>
