@@ -13,4 +13,10 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 
 alembic upgrade head
-exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers
+# --forwarded-allow-ips: uvicorn's --proxy-headers only trusts X-Forwarded-Proto from
+# 127.0.0.1 by default. Render's edge proxy connects from a different internal IP, so
+# without this, uvicorn ignores the header, HTTPSRedirectMiddleware thinks every request
+# is still plain HTTP, and redirects it to https — which is what it already was, forever
+# (a redirect loop). The container isn't directly reachable except through Render's proxy,
+# so trusting all forwarded-for IPs here is safe.
+exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers --forwarded-allow-ips='*'
