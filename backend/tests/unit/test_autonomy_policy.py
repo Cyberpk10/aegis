@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import uuid
+
 from app.autonomy.actions import ACTIONS, ActionDefinition, DISABLE_SESSION, QUARANTINE_EMAIL
 from app.autonomy.policy import Policy, PolicyDecision, PolicyRule, evaluate
 
 _DISABLE_SESSION = ACTIONS[DISABLE_SESSION]  # containment=True, floor=0.6
 _QUARANTINE_EMAIL = ACTIONS[QUARANTINE_EMAIL]  # containment=False, floor=0.5
+_ACCOUNT_ID = uuid.uuid4()
 
 
 def _policy(level: str, rules: list[PolicyRule] | None = None, exclusions: list[str] | None = None) -> Policy:
-    return Policy(tenant_id="default", level=level, rules=rules or [], exclusions=exclusions or [])
+    return Policy(account_id=_ACCOUNT_ID, level=level, rules=rules or [], exclusions=exclusions or [])
 
 
 def test_l0_always_requires_approval_even_with_a_matching_high_confidence_rule():

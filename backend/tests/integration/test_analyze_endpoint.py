@@ -16,15 +16,15 @@ def test_health_check(client):
     assert response.json() == {"status": "ok"}
 
 
-def test_rejects_non_eml_file(client):
-    response = client.post(
+def test_rejects_non_eml_file(authed_client):
+    response = authed_client.post(
         "/api/analyze", files={"file": ("note.txt", b"hello", "text/plain")}
     )
     assert response.status_code == 400
 
 
-def test_rejects_empty_file(client):
-    response = client.post("/api/analyze", files={"file": ("empty.eml", b"", "message/rfc822")})
+def test_rejects_empty_file(authed_client):
+    response = authed_client.post("/api/analyze", files={"file": ("empty.eml", b"", "message/rfc822")})
     assert response.status_code == 400
 
 
@@ -39,11 +39,11 @@ def test_rejects_empty_file(client):
         "benign_legit_password_reset.eml",
     ],
 )
-def test_labeled_samples_match_expected_verdict(client, load_eml, labeled_samples, filename):
+def test_labeled_samples_match_expected_verdict(authed_client, load_eml, labeled_samples, filename):
     expected_verdict = labeled_samples[filename]
     raw = load_eml(filename)
 
-    response = client.post(
+    response = authed_client.post(
         "/api/analyze", files={"file": (filename, raw, "message/rfc822")}
     )
 
@@ -55,9 +55,9 @@ def test_labeled_samples_match_expected_verdict(client, load_eml, labeled_sample
     )
 
 
-def test_malicious_sample_has_populated_framework_mappings(client, load_eml):
+def test_malicious_sample_has_populated_framework_mappings(authed_client, load_eml):
     raw = load_eml("phishing_lookalike_paypal.eml")
-    response = client.post(
+    response = authed_client.post(
         "/api/analyze", files={"file": ("phishing_lookalike_paypal.eml", raw, "message/rfc822")}
     )
     body = response.json()
@@ -66,9 +66,9 @@ def test_malicious_sample_has_populated_framework_mappings(client, load_eml):
         assert len(mappings[framework_key]) > 0
 
 
-def test_safe_sample_has_no_indicators(client, load_eml):
+def test_safe_sample_has_no_indicators(authed_client, load_eml):
     raw = load_eml("benign_newsletter.eml")
-    response = client.post(
+    response = authed_client.post(
         "/api/analyze", files={"file": ("benign_newsletter.eml", raw, "message/rfc822")}
     )
     body = response.json()
@@ -76,9 +76,9 @@ def test_safe_sample_has_no_indicators(client, load_eml):
     assert body["score"] == 0
 
 
-def test_response_summary_reflects_auth_results(client, load_eml):
+def test_response_summary_reflects_auth_results(authed_client, load_eml):
     raw = load_eml("phishing_bec_wire_transfer.eml")
-    response = client.post(
+    response = authed_client.post(
         "/api/analyze", files={"file": ("phishing_bec_wire_transfer.eml", raw, "message/rfc822")}
     )
     body = response.json()
@@ -86,9 +86,9 @@ def test_response_summary_reflects_auth_results(client, load_eml):
     assert body["summary"]["from_address"] == "ceo@acmecorp-executives.com"
 
 
-def test_llm_reasoning_disabled_by_default_omits_narrative(client, load_eml):
+def test_llm_reasoning_disabled_by_default_omits_narrative(authed_client, load_eml):
     raw = load_eml("phishing_lookalike_paypal.eml")
-    response = client.post(
+    response = authed_client.post(
         "/api/analyze", files={"file": ("phishing_lookalike_paypal.eml", raw, "message/rfc822")}
     )
     body = response.json()
@@ -96,7 +96,7 @@ def test_llm_reasoning_disabled_by_default_omits_narrative(client, load_eml):
     assert body["analyst_model"] is None
 
 
-def test_llm_reasoning_enabled_populates_narrative(client, load_eml, monkeypatch):
+def test_llm_reasoning_enabled_populates_narrative(authed_client, load_eml, monkeypatch):
     monkeypatch.setattr(analyze_module.settings, "enable_llm_reasoning", True)
 
     def fake_narrative(parsed_email, indicators, score, verdict):
@@ -105,7 +105,7 @@ def test_llm_reasoning_enabled_populates_narrative(client, load_eml, monkeypatch
     monkeypatch.setattr(analyze_module, "generate_analyst_narrative", fake_narrative)
 
     raw = load_eml("phishing_lookalike_paypal.eml")
-    response = client.post(
+    response = authed_client.post(
         "/api/analyze", files={"file": ("phishing_lookalike_paypal.eml", raw, "message/rfc822")}
     )
 
@@ -118,12 +118,12 @@ def test_llm_reasoning_enabled_populates_narrative(client, load_eml, monkeypatch
     assert body["score"] == 100
 
 
-def test_llm_reasoning_enabled_without_api_key_returns_null_narrative(client, load_eml, monkeypatch):
+def test_llm_reasoning_enabled_without_api_key_returns_null_narrative(authed_client, load_eml, monkeypatch):
     monkeypatch.setattr(analyze_module.settings, "enable_llm_reasoning", True)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
     raw = load_eml("benign_newsletter.eml")
-    response = client.post(
+    response = authed_client.post(
         "/api/analyze", files={"file": ("benign_newsletter.eml", raw, "message/rfc822")}
     )
 
@@ -134,9 +134,9 @@ def test_llm_reasoning_enabled_without_api_key_returns_null_narrative(client, lo
     assert body["verdict"] == "safe"
 
 
-def test_analyze_persists_a_retrievable_case(client, load_eml):
+def test_analyze_persists_a_retrievable_case(authed_client, load_eml):
     raw = load_eml("phishing_lookalike_paypal.eml")
-    analyze_response = client.post(
+    analyze_response = authed_client.post(
         "/api/analyze", files={"file": ("phishing_lookalike_paypal.eml", raw, "message/rfc822")}
     )
     assert analyze_response.status_code == 200
@@ -144,7 +144,7 @@ def test_analyze_persists_a_retrievable_case(client, load_eml):
     assert analyze_body["id"]
     assert analyze_body["created_at"]
 
-    case_response = client.get(f"/api/cases/{analyze_body['id']}")
+    case_response = authed_client.get(f"/api/cases/{analyze_body['id']}")
     assert case_response.status_code == 200
     case_body = case_response.json()
 

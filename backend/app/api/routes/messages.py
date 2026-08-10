@@ -4,7 +4,8 @@ app.channels.slack_adapter.normalize_slack_message / teams_adapter.normalize_tea
 produce — a caller runs the adapter first, then POSTs the common shape here. Reuses the exact
 same run_indicators -> fuse -> map_indicators pipeline app.api.routes.analyze uses, and persists
 into the same `cases` table (with channel="slack"/"teams"), so chat cases show up side-by-side
-with email cases in GET /api/cases.
+with email cases in GET /api/cases. Requires auth; scoped to the authenticated user's
+account (M8 Stage 2).
 """
 
 from __future__ import annotations
@@ -14,8 +15,9 @@ import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
 from app.channels.message import Channel, Link, Message, domain_of
-from app.db.models import Case
+from app.db.models import Case, User
 from app.db.session import get_db
 from app.indicators.engine import run_indicators
 from app.mapping.framework_mapper import map_indicators
@@ -27,7 +29,9 @@ router = APIRouter(prefix="/api/messages", tags=["messages"])
 
 @router.post("/analyze", response_model=MessageAnalyzeResponse)
 async def analyze_message(
-    body: MessageAnalyzeRequest, db: Session = Depends(get_db)
+    body: MessageAnalyzeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> MessageAnalyzeResponse:
     # href_domain is server-computed, never trusted from the client — same principle as
     # eml_parser computing it from parsed HTML/text rather than accepting it as input.
@@ -62,6 +66,7 @@ async def analyze_message(
 
     case = Case(
         id=case_id,
+        account_id=current_user.account_id,
         filename=f"{body.channel}:{case_id}",
         channel=body.channel,
         verdict=verdict.value,

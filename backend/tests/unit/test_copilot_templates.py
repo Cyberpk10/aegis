@@ -19,6 +19,8 @@ from app.copilot.templates import (
 )
 from app.db.models import Case
 
+_ACCOUNT_ID = uuid.uuid4()
+
 CRED = {
     "id": "CREDENTIAL_REQUEST",
     "category": "content",
@@ -60,6 +62,7 @@ def _make_case(
 ):
     case = Case(
         id=uuid.uuid4(),
+        account_id=_ACCOUNT_ID,
         created_at=created_at,
         filename="t.eml",
         verdict=verdict,
@@ -81,7 +84,7 @@ def test_verdict_counts_executor(db_session):
     _make_case(db_session, verdict="malicious", created_at=datetime(2026, 1, 6))
     _make_case(db_session, verdict="safe", created_at=datetime(2026, 1, 7))
 
-    result = _execute_verdict_counts(VerdictCountsParams(), db_session)
+    result = _execute_verdict_counts(VerdictCountsParams(), db_session, _ACCOUNT_ID)
 
     assert result["counts"] == {"malicious": 2, "suspicious": 0, "safe": 1}
     assert result["total"] == 3
@@ -93,7 +96,7 @@ def test_verdict_counts_executor_respects_date_range(db_session):
 
     result = _execute_verdict_counts(
         VerdictCountsParams(date_from=datetime(2026, 1, 1), date_to=datetime(2026, 1, 31)),
-        db_session,
+        db_session, _ACCOUNT_ID,
     )
 
     assert result["total"] == 1
@@ -105,7 +108,7 @@ def test_top_indicators_executor(db_session):
         db_session, verdict="malicious", created_at=datetime(2026, 1, 6), indicators=[CRED, SPF]
     )
 
-    result = _execute_top_indicators(TopIndicatorsParams(top_n=5), db_session)
+    result = _execute_top_indicators(TopIndicatorsParams(top_n=5), db_session, _ACCOUNT_ID)
 
     top = result["top_indicators"]
     assert top[0]["indicator_id"] == "CREDENTIAL_REQUEST"
@@ -117,7 +120,7 @@ def test_indicator_case_count_executor(db_session):
     _make_case(db_session, verdict="malicious", created_at=datetime(2026, 1, 6), indicators=[SPF])
 
     result = _execute_indicator_case_count(
-        IndicatorCaseCountParams(indicator_id="CREDENTIAL_REQUEST"), db_session
+        IndicatorCaseCountParams(indicator_id="CREDENTIAL_REQUEST"), db_session, _ACCOUNT_ID
     )
 
     assert result["count"] == 1
@@ -134,14 +137,14 @@ def test_target_lookup_executor(db_session):
             to_addresses=["alice@example.com"],
         )
 
-    result = _execute_target_lookup(TargetLookupParams(recipient="Alice@Example.com"), db_session)
+    result = _execute_target_lookup(TargetLookupParams(recipient="Alice@Example.com"), db_session, _ACCOUNT_ID)
 
     assert result["hit_count"] == 3
     assert result["flagged_for_training"] is True  # default threshold is 3
 
 
 def test_target_lookup_executor_unknown_recipient(db_session):
-    result = _execute_target_lookup(TargetLookupParams(recipient="nobody@example.com"), db_session)
+    result = _execute_target_lookup(TargetLookupParams(recipient="nobody@example.com"), db_session, _ACCOUNT_ID)
 
     assert result["hit_count"] == 0
     assert result["flagged_for_training"] is False
@@ -156,7 +159,7 @@ def test_framework_coverage_executor(db_session):
         framework_mappings=MITRE_MAPPING,
     )
 
-    result = _execute_framework_coverage(FrameworkCoverageParams(framework="mitre"), db_session)
+    result = _execute_framework_coverage(FrameworkCoverageParams(framework="mitre"), db_session, _ACCOUNT_ID)
 
     assert result["framework"] == "mitre"
     assert result["operating_controls"] == 1
@@ -165,7 +168,7 @@ def test_framework_coverage_executor(db_session):
 
 def test_unsupported_question_executor(db_session):
     result = _execute_unsupported_question(
-        UnsupportedQuestionParams(reason="asks about the weather"), db_session
+        UnsupportedQuestionParams(reason="asks about the weather"), db_session, _ACCOUNT_ID
     )
 
     assert result == {"answerable": False, "reason": "asks about the weather"}

@@ -7,16 +7,22 @@ from alembic import context
 
 from app.core.config import settings
 from app.db.models import (  # noqa: F401 - imports register models on Base.metadata
+    Account,
     ActorBaseline,
+    AuditLogEntry,
     AuditReport,
     AutonomyAction,
     AutonomyPolicy,
     Case,
     Event,
     Incident,
+    Invite,
     Label,
+    PasswordResetToken,
+    RefreshToken,
     RemediationAction,
     TrainingRecommendation,
+    User,
 )
 from app.db.session import Base
 

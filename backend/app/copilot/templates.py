@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
@@ -60,8 +61,10 @@ class UnsupportedQuestionParams(_BaseParams):
     reason: str
 
 
-def _cases_in_range(db: Session, date_from: datetime | None, date_to: datetime | None) -> list[Case]:
-    query = db.query(Case)
+def _cases_in_range(
+    db: Session, account_id: UUID, date_from: datetime | None, date_to: datetime | None
+) -> list[Case]:
+    query = db.query(Case).filter(Case.account_id == account_id)
     if date_from is not None:
         query = query.filter(Case.created_at >= date_from)
     if date_to is not None:
@@ -93,8 +96,10 @@ def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
 
 
-def _execute_verdict_counts(params: VerdictCountsParams, db: Session) -> dict:
-    cases = [_to_case_row(c) for c in _cases_in_range(db, params.date_from, params.date_to)]
+def _execute_verdict_counts(params: VerdictCountsParams, db: Session, account_id: UUID) -> dict:
+    cases = [
+        _to_case_row(c) for c in _cases_in_range(db, account_id, params.date_from, params.date_to)
+    ]
     counts = _verdict_counts(cases)
     return {
         "date_from": _iso(params.date_from),
@@ -104,8 +109,10 @@ def _execute_verdict_counts(params: VerdictCountsParams, db: Session) -> dict:
     }
 
 
-def _execute_top_indicators(params: TopIndicatorsParams, db: Session) -> dict:
-    cases = [_to_case_row(c) for c in _cases_in_range(db, params.date_from, params.date_to)]
+def _execute_top_indicators(params: TopIndicatorsParams, db: Session, account_id: UUID) -> dict:
+    cases = [
+        _to_case_row(c) for c in _cases_in_range(db, account_id, params.date_from, params.date_to)
+    ]
     return {
         "date_from": _iso(params.date_from),
         "date_to": _iso(params.date_to),
@@ -113,8 +120,10 @@ def _execute_top_indicators(params: TopIndicatorsParams, db: Session) -> dict:
     }
 
 
-def _execute_indicator_case_count(params: IndicatorCaseCountParams, db: Session) -> dict:
-    cases_orm = _cases_in_range(db, params.date_from, params.date_to)
+def _execute_indicator_case_count(
+    params: IndicatorCaseCountParams, db: Session, account_id: UUID
+) -> dict:
+    cases_orm = _cases_in_range(db, account_id, params.date_from, params.date_to)
     matching = [
         c for c in cases_orm if any(i.get("id") == params.indicator_id for i in c.indicators)
     ]
@@ -129,9 +138,12 @@ def _execute_indicator_case_count(params: IndicatorCaseCountParams, db: Session)
     }
 
 
-def _execute_target_lookup(params: TargetLookupParams, db: Session) -> dict:
+def _execute_target_lookup(params: TargetLookupParams, db: Session, account_id: UUID) -> dict:
     recipient = params.recipient.strip().lower()
-    cases = [_to_target_row(c) for c in _cases_in_range(db, params.date_from, params.date_to)]
+    cases = [
+        _to_target_row(c)
+        for c in _cases_in_range(db, account_id, params.date_from, params.date_to)
+    ]
     summaries = aggregate_targets(cases, threshold=settings.target_training_threshold)
     match = next((s for s in summaries if s.recipient == recipient), None)
 
@@ -159,7 +171,9 @@ def _execute_target_lookup(params: TargetLookupParams, db: Session) -> dict:
     }
 
 
-def _execute_framework_coverage(params: FrameworkCoverageParams, db: Session) -> dict:
+def _execute_framework_coverage(
+    params: FrameworkCoverageParams, db: Session, account_id: UUID
+) -> dict:
     framework_key = resolve_framework_alias(params.framework)
     loaded = get_framework(framework_key)
     base = {
@@ -170,7 +184,9 @@ def _execute_framework_coverage(params: FrameworkCoverageParams, db: Session) ->
     if loaded is None:
         return {**base, "error": "Framework is not loaded."}
 
-    cases = [_to_case_row(c) for c in _cases_in_range(db, params.date_from, params.date_to)]
+    cases = [
+        _to_case_row(c) for c in _cases_in_range(db, account_id, params.date_from, params.date_to)
+    ]
     evidence = evidence_for_framework(cases, loaded.controls_by_id, framework_key)
     operating = sum(1 for e in evidence if e.operating)
 
@@ -192,7 +208,9 @@ def _execute_framework_coverage(params: FrameworkCoverageParams, db: Session) ->
     }
 
 
-def _execute_unsupported_question(params: UnsupportedQuestionParams, db: Session) -> dict:
+def _execute_unsupported_question(
+    params: UnsupportedQuestionParams, db: Session, account_id: UUID
+) -> dict:
     return {"answerable": False, "reason": params.reason}
 
 
@@ -201,7 +219,7 @@ class CopilotTemplate:
     name: str
     description: str
     param_model: type[BaseModel]
-    executor: Callable[[BaseModel, Session], dict]
+    executor: Callable[[BaseModel, Session, UUID], dict]
 
 
 TEMPLATE_REGISTRY: dict[str, CopilotTemplate] = {
@@ -255,7 +273,9 @@ TEMPLATE_REGISTRY: dict[str, CopilotTemplate] = {
 }
 
 
-def execute_template(template_name: str, raw_params: dict, db: Session) -> tuple[str, BaseModel, dict]:
+def execute_template(
+    template_name: str, raw_params: dict, db: Session, account_id: UUID
+) -> tuple[str, BaseModel, dict]:
     """The single, whitelist-enforcing entry point for running a copilot query.
 
     Raises KeyError for a template name that isn't a literal key in TEMPLATE_REGISTRY,
@@ -263,9 +283,11 @@ def execute_template(template_name: str, raw_params: dict, db: Session) -> tuple
     into an HTTP 400. This function never executes anything outside the fixed registry no
     matter what template_name/raw_params it is given, which is the actual security
     boundary: even if the LLM call that produced these values were fully compromised, the
-    worst it can do is fail this lookup/validation.
+    worst it can do is fail this lookup/validation. `account_id` is always the
+    authenticated caller's own (see app.api.routes.copilot) — never LLM- or
+    client-supplied — so a copilot query can never cross into another account's data.
     """
     template = TEMPLATE_REGISTRY[template_name]
     params = template.param_model(**raw_params)
-    result = template.executor(params, db)
+    result = template.executor(params, db, account_id)
     return template.name, params, result

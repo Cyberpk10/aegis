@@ -12,17 +12,21 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+import uuid
+
 from app.copilot.templates import TEMPLATE_REGISTRY, execute_template
+
+_ACCOUNT_ID = uuid.uuid4()
 
 
 def test_unknown_template_name_is_rejected_not_executed(db_session):
     with pytest.raises(KeyError):
-        execute_template("'; DROP TABLE cases; --", {}, db_session)
+        execute_template("'; DROP TABLE cases; --", {}, db_session, _ACCOUNT_ID)
 
 
 def test_plausible_sounding_but_unwhitelisted_template_name_is_rejected(db_session):
     with pytest.raises(KeyError):
-        execute_template("run_raw_sql", {}, db_session)
+        execute_template("run_raw_sql", {}, db_session, _ACCOUNT_ID)
 
 
 def test_extra_params_are_rejected_not_silently_dropped(db_session):
@@ -30,7 +34,7 @@ def test_extra_params_are_rejected_not_silently_dropped(db_session):
         execute_template(
             "verdict_counts",
             {"date_from": None, "raw_sql": "DROP TABLE cases; --"},
-            db_session,
+            db_session, _ACCOUNT_ID,
         )
 
 
@@ -39,18 +43,18 @@ def test_extra_params_rejected_even_alongside_valid_required_fields(db_session):
         execute_template(
             "target_lookup",
             {"recipient": "alice@example.com", "injected_field": "anything"},
-            db_session,
+            db_session, _ACCOUNT_ID,
         )
 
 
 def test_missing_required_param_is_rejected(db_session):
     with pytest.raises(ValidationError):
-        execute_template("indicator_case_count", {}, db_session)  # indicator_id is required
+        execute_template("indicator_case_count", {}, db_session, _ACCOUNT_ID)  # indicator_id is required
 
 
 def test_wrong_typed_param_is_rejected(db_session):
     with pytest.raises(ValidationError):
-        execute_template("top_indicators", {"top_n": "'; DROP TABLE cases; --"}, db_session)
+        execute_template("top_indicators", {"top_n": "'; DROP TABLE cases; --"}, db_session, _ACCOUNT_ID)
 
 
 _FORBIDDEN_QUERY_CONSTRUCTION = re.compile(

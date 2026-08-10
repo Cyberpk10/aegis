@@ -8,11 +8,15 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api.routes.analyze import router as analyze_router
 from app.api.routes.audit import router as audit_router
+from app.api.routes.auth import router as auth_router
 from app.api.routes.autonomy import router as autonomy_router
 from app.api.routes.cases import router as cases_router
 from app.api.routes.copilot import router as copilot_router
@@ -26,6 +30,7 @@ from app.api.routes.remediation import cases_router as remediation_cases_router
 from app.api.routes.remediation import incidents_router as remediation_incidents_router
 from app.api.routes.remediation import targets_router as targets_router
 from app.api.routes.risk import router as risk_router
+from app.auth.rate_limit import limiter
 from app.core.config import settings
 from app.db.session import Base, engine, get_db
 from app.storage.raw_email_store import purge_expired
@@ -53,6 +58,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Rate limiting (M8 Stage 2) — only app.api.routes.auth's login/signup/password-reset/
+# invite-accept endpoints actually apply @limiter.limit(...); everything else is
+# unaffected. In-memory storage, see app.auth.rate_limit for why that's the right choice
+# for the current single-instance deployment.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
 # Gated to production only — HTTPSRedirectMiddleware would otherwise break local
 # http://localhost dev. Relies on the ASGI server trusting X-Forwarded-Proto from the
 # platform's TLS-terminating proxy (uvicorn's --proxy-headers, see docker-entrypoint.sh) —
@@ -68,6 +81,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
 app.include_router(analyze_router)
 app.include_router(cases_router)
 app.include_router(labels_router)

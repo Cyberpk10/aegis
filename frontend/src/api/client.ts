@@ -24,12 +24,7 @@ import type {
   TargetsListResponse,
   Verdict,
 } from "../types/analysis";
-
-// Empty by default (unset) so every relative /api/... URL below is unchanged in local dev —
-// Vite's dev-server proxy (vite.config.ts) still handles it. In production, set
-// VITE_API_BASE_URL to the deployed backend's origin (e.g. https://aegis-api.onrender.com);
-// Vite only exposes client-side env vars prefixed VITE_.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+import { apiFetch } from "./authClient";
 
 export class AnalyzeError extends Error {}
 
@@ -42,7 +37,7 @@ export async function postAnalyze(file: File): Promise<AnalyzeResponse> {
   const formData = new FormData();
   formData.append("file", file, file.name);
 
-  const response = await fetch(`${API_BASE_URL}/api/analyze`, {
+  const response = await apiFetch(`/api/analyze`, {
     method: "POST",
     body: formData,
   });
@@ -72,7 +67,7 @@ export async function getCases(params: ListCasesParams = {}): Promise<CaseListRe
   if (params.dateFrom) query.set("date_from", params.dateFrom);
   if (params.dateTo) query.set("date_to", params.dateTo);
 
-  const response = await fetch(`${API_BASE_URL}/api/cases?${query.toString()}`);
+  const response = await apiFetch(`/api/cases?${query.toString()}`);
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -80,7 +75,7 @@ export async function getCases(params: ListCasesParams = {}): Promise<CaseListRe
 }
 
 export async function getCase(id: string): Promise<CaseDetail> {
-  const response = await fetch(`${API_BASE_URL}/api/cases/${id}`);
+  const response = await apiFetch(`/api/cases/${id}`);
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -88,7 +83,7 @@ export async function getCase(id: string): Promise<CaseDetail> {
 }
 
 export async function deleteCase(id: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/cases/${id}`, { method: "DELETE" });
+  const response = await apiFetch(`/api/cases/${id}`, { method: "DELETE" });
   if (!response.ok && response.status !== 204) {
     return parseErrorOrThrow(response);
   }
@@ -100,7 +95,7 @@ export interface SubmitLabelParams {
 }
 
 export async function submitLabel(caseId: string, params: SubmitLabelParams): Promise<Label> {
-  const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/label`, {
+  const response = await apiFetch(`/api/cases/${caseId}/label`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -125,7 +120,7 @@ export async function getDashboardSummary(
   if (params.dateTo) query.set("date_to", params.dateTo);
   if (params.topN) query.set("top_n", String(params.topN));
 
-  const response = await fetch(`${API_BASE_URL}/api/dashboard/summary?${query.toString()}`);
+  const response = await apiFetch(`/api/dashboard/summary?${query.toString()}`);
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -146,7 +141,7 @@ export async function getAuditEvidence(
   if (params.dateFrom) query.set("date_from", params.dateFrom);
   if (params.dateTo) query.set("date_to", params.dateTo);
 
-  const response = await fetch(`${API_BASE_URL}/api/audit/evidence?${query.toString()}`);
+  const response = await apiFetch(`/api/audit/evidence?${query.toString()}`);
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -162,7 +157,7 @@ export interface GenerateAuditReportParams {
 export async function generateAuditReport(
   params: GenerateAuditReportParams
 ): Promise<AuditReportSummary> {
-  const response = await fetch(`${API_BASE_URL}/api/audit/report`, {
+  const response = await apiFetch(`/api/audit/report`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -189,7 +184,7 @@ export async function listAuditReports(
   query.set("page", String(params.page ?? 1));
   query.set("page_size", String(params.pageSize ?? 20));
 
-  const response = await fetch(`${API_BASE_URL}/api/audit/reports?${query.toString()}`);
+  const response = await apiFetch(`/api/audit/reports?${query.toString()}`);
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -197,7 +192,7 @@ export async function listAuditReports(
 }
 
 export async function downloadAuditReport(id: string, format: "pdf" | "json"): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/audit/reports/${id}/download?format=${format}`);
+  const response = await apiFetch(`/api/audit/reports/${id}/download?format=${format}`);
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -214,7 +209,7 @@ export async function downloadAuditReport(id: string, format: "pdf" | "json"): P
 }
 
 export async function getRemediationPlaybook(caseId: string): Promise<RemediationPlaybook> {
-  const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/remediate`, { method: "POST" });
+  const response = await apiFetch(`/api/cases/${caseId}/remediate`, { method: "POST" });
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -231,7 +226,7 @@ export async function submitRemediationAction(
   stepId: string,
   params: SubmitRemediationActionParams
 ): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/remediate/${stepId}/action`, {
+  const response = await apiFetch(`/api/cases/${caseId}/remediate/${stepId}/action`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -242,7 +237,7 @@ export async function submitRemediationAction(
 }
 
 export async function getTargets(): Promise<TargetsListResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/targets`);
+  const response = await apiFetch(`/api/targets`);
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -261,7 +256,7 @@ export async function getFinancialRisk(
   if (params.dateFrom) query.set("date_from", params.dateFrom);
   if (params.dateTo) query.set("date_to", params.dateTo);
 
-  const response = await fetch(`${API_BASE_URL}/api/risk/financial?${query.toString()}`);
+  const response = await apiFetch(`/api/risk/financial?${query.toString()}`);
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -271,7 +266,7 @@ export async function getFinancialRisk(
 export async function postEventsBatch(
   events: Omit<ActivityEvent, "id">[]
 ): Promise<EventBatchResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/events`, {
+  const response = await apiFetch(`/api/events`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ events }),
@@ -302,7 +297,7 @@ export async function getIncidents(
   if (params.dateFrom) query.set("date_from", params.dateFrom);
   if (params.dateTo) query.set("date_to", params.dateTo);
 
-  const response = await fetch(`${API_BASE_URL}/api/incidents?${query.toString()}`);
+  const response = await apiFetch(`/api/incidents?${query.toString()}`);
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -310,7 +305,7 @@ export async function getIncidents(
 }
 
 export async function getIncident(id: string): Promise<IncidentDetail> {
-  const response = await fetch(`${API_BASE_URL}/api/incidents/${id}`);
+  const response = await apiFetch(`/api/incidents/${id}`);
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -318,7 +313,7 @@ export async function getIncident(id: string): Promise<IncidentDetail> {
 }
 
 export async function deleteIncident(id: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/incidents/${id}`, { method: "DELETE" });
+  const response = await apiFetch(`/api/incidents/${id}`, { method: "DELETE" });
   if (!response.ok && response.status !== 204) {
     return parseErrorOrThrow(response);
   }
@@ -328,7 +323,7 @@ export async function submitIncidentLabel(
   incidentId: string,
   params: SubmitLabelParams
 ): Promise<Label> {
-  const response = await fetch(`${API_BASE_URL}/api/incidents/${incidentId}/label`, {
+  const response = await apiFetch(`/api/incidents/${incidentId}/label`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -342,7 +337,7 @@ export async function submitIncidentLabel(
 export async function getIncidentRemediationPlaybook(
   incidentId: string
 ): Promise<RemediationPlaybook> {
-  const response = await fetch(`${API_BASE_URL}/api/incidents/${incidentId}/remediate`, { method: "POST" });
+  const response = await apiFetch(`/api/incidents/${incidentId}/remediate`, { method: "POST" });
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -354,7 +349,7 @@ export async function submitIncidentRemediationAction(
   stepId: string,
   params: SubmitRemediationActionParams
 ): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/incidents/${incidentId}/remediate/${stepId}/action`, {
+  const response = await apiFetch(`/api/incidents/${incidentId}/remediate/${stepId}/action`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -365,7 +360,7 @@ export async function submitIncidentRemediationAction(
 }
 
 export async function queryCopilot(question: string): Promise<CopilotQueryResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/copilot/query`, {
+  const response = await apiFetch(`/api/copilot/query`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question }),
@@ -377,7 +372,7 @@ export async function queryCopilot(question: string): Promise<CopilotQueryRespon
 }
 
 export async function getAutonomyPolicy(): Promise<AutonomyPolicy> {
-  const response = await fetch(`${API_BASE_URL}/api/autonomy/policy`);
+  const response = await apiFetch(`/api/autonomy/policy`);
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -392,7 +387,7 @@ export type PutAutonomyPolicyParams = Pick<
 export async function putAutonomyPolicy(
   params: PutAutonomyPolicyParams
 ): Promise<AutonomyPolicy> {
-  const response = await fetch(`${API_BASE_URL}/api/autonomy/policy`, {
+  const response = await apiFetch(`/api/autonomy/policy`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -404,7 +399,7 @@ export async function putAutonomyPolicy(
 }
 
 export async function haltAutonomy(): Promise<AutonomyHaltResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/autonomy/halt`, { method: "POST" });
+  const response = await apiFetch(`/api/autonomy/halt`, { method: "POST" });
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -429,7 +424,7 @@ export async function getAutonomyActions(
   if (params.decision) query.set("decision", params.decision);
   if (params.status) query.set("status", params.status);
 
-  const response = await fetch(`${API_BASE_URL}/api/autonomy/actions?${query.toString()}`);
+  const response = await apiFetch(`/api/autonomy/actions?${query.toString()}`);
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -437,7 +432,7 @@ export async function getAutonomyActions(
 }
 
 export async function reverseAutonomyAction(id: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/autonomy/actions/${id}/reverse`, { method: "POST" });
+  const response = await apiFetch(`/api/autonomy/actions/${id}/reverse`, { method: "POST" });
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -450,7 +445,7 @@ export async function getMonitoringControls(
   if (framework) query.set("framework", framework);
   const suffix = query.toString() ? `?${query.toString()}` : "";
 
-  const response = await fetch(`${API_BASE_URL}/api/monitoring/controls${suffix}`);
+  const response = await apiFetch(`/api/monitoring/controls${suffix}`);
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
@@ -458,7 +453,7 @@ export async function getMonitoringControls(
 }
 
 export async function getMonitoringDrift(): Promise<DriftAlertListResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/monitoring/drift`);
+  const response = await apiFetch(`/api/monitoring/drift`);
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }

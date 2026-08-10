@@ -89,7 +89,7 @@ def execute_if_authorized(
         auto_count = (
             db.query(AutonomyAction)
             .filter(
-                AutonomyAction.tenant_id == policy.tenant_id,
+                AutonomyAction.account_id == policy.account_id,
                 AutonomyAction.decision == PolicyDecision.AUTO_EXECUTE.value,
                 AutonomyAction.created_at >= window_start,
             )
@@ -121,7 +121,7 @@ def execute_if_authorized(
 
     row = AutonomyAction(
         id=uuid.uuid4(),
-        tenant_id=policy.tenant_id,
+        account_id=policy.account_id,
         created_at=now,
         case_id=case_id,
         incident_id=incident_id,

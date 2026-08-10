@@ -1,35 +1,43 @@
-"""GET /api/labels/export — labeled cases as JSONL, the future ML training-set format."""
+"""GET /api/labels/export — labeled cases as JSONL, the future ML training-set format.
+Scoped to the authenticated user's account (M8 Stage 2)."""
 
 from __future__ import annotations
 
 import json
 import uuid
 from collections.abc import Iterator
+from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.db.models import Case, Label
+from app.auth.dependencies import get_current_user
+from app.db.models import Case, Label, User
 from app.db.session import get_db
 
 router = APIRouter(prefix="/api/labels", tags=["labels"])
 
 
-def _latest_labels_by_case(db: Session) -> dict[uuid.UUID, Label]:
+def _latest_labels_by_case(db: Session, account_id: UUID) -> dict[uuid.UUID, Label]:
     # Ordered by case_id, then created_at desc: the first row seen per case_id is that
     # case's latest label. Avoids a join/subquery tie-break on timestamps.
     latest: dict[uuid.UUID, Label] = {}
-    for label in db.query(Label).order_by(Label.case_id, Label.created_at.desc()).all():
+    query = (
+        db.query(Label)
+        .filter(Label.account_id == account_id)
+        .order_by(Label.case_id, Label.created_at.desc())
+    )
+    for label in query.all():
         latest.setdefault(label.case_id, label)
     return latest
 
 
-def _export_lines(db: Session) -> Iterator[str]:
-    latest_by_case = _latest_labels_by_case(db)
+def _export_lines(db: Session, account_id: UUID) -> Iterator[str]:
+    latest_by_case = _latest_labels_by_case(db, account_id)
     cases = (
         db.query(Case)
-        .filter(Case.id.in_(latest_by_case.keys()))
+        .filter(Case.account_id == account_id, Case.id.in_(latest_by_case.keys()))
         .order_by(Case.created_at)
         .all()
     )
@@ -54,5 +62,9 @@ def _export_lines(db: Session) -> Iterator[str]:
 
 
 @router.get("/export")
-async def export_labels(db: Session = Depends(get_db)) -> StreamingResponse:
-    return StreamingResponse(_export_lines(db), media_type="application/x-ndjson")
+async def export_labels(
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> StreamingResponse:
+    return StreamingResponse(
+        _export_lines(db, current_user.account_id), media_type="application/x-ndjson"
+    )

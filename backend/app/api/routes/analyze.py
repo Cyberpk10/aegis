@@ -1,4 +1,5 @@
-"""POST /api/analyze — analyze a single uploaded .eml file for phishing indicators."""
+"""POST /api/analyze — analyze a single uploaded .eml file for phishing indicators. Requires
+auth (M8 Stage 2); the resulting Case is scoped to the authenticated user's account."""
 
 from __future__ import annotations
 
@@ -7,8 +8,9 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
 from app.core.config import settings
-from app.db.models import Case
+from app.db.models import Case, User
 from app.db.session import get_db
 from app.indicators.engine import run_indicators
 from app.mapping.framework_mapper import map_indicators
@@ -22,7 +24,11 @@ router = APIRouter(prefix="/api", tags=["analyze"])
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
-async def analyze_email(file: UploadFile, db: Session = Depends(get_db)) -> AnalyzeResponse:
+async def analyze_email(
+    file: UploadFile,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AnalyzeResponse:
     if not file.filename or not file.filename.lower().endswith(".eml"):
         raise HTTPException(status_code=400, detail="Uploaded file must have a .eml extension.")
 
@@ -71,6 +77,7 @@ async def analyze_email(file: UploadFile, db: Session = Depends(get_db)) -> Anal
 
     case = Case(
         id=case_id,
+        account_id=current_user.account_id,
         filename=file.filename,
         verdict=verdict.value,
         score=score,

@@ -11,8 +11,9 @@ from datetime import datetime
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
 from app.dashboard.aggregation import CaseRow, LabelRow, verdict_counts
-from app.db.models import Case, Label
+from app.db.models import Case, Label, User
 from app.db.session import get_db
 from app.models.schemas import (
     FinancialRiskResponse,
@@ -63,6 +64,7 @@ def _to_breakdown(entries: list[dict]) -> list[RiskAttackTypeBreakdown]:
 @router.get("/financial", response_model=FinancialRiskResponse)
 async def financial_risk(
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     date_from: datetime | None = None,
     date_to: datetime | None = None,
 ) -> FinancialRiskResponse:
@@ -70,14 +72,21 @@ async def financial_risk(
 
     cases_orm = (
         db.query(Case)
-        .filter(Case.created_at >= period_start, Case.created_at <= period_end)
+        .filter(
+            Case.account_id == current_user.account_id,
+            Case.created_at >= period_start,
+            Case.created_at <= period_end,
+        )
         .all()
     )
     cases = [_to_case_row(c) for c in cases_orm]
 
     case_ids = [c.id for c in cases_orm]
     labels_orm = (
-        db.query(Label).filter(Label.case_id.in_(case_ids)).order_by(Label.case_id, Label.created_at.desc()).all()
+        db.query(Label)
+        .filter(Label.account_id == current_user.account_id, Label.case_id.in_(case_ids))
+        .order_by(Label.case_id, Label.created_at.desc())
+        .all()
         if case_ids
         else []
     )

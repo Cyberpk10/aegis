@@ -45,6 +45,7 @@ MITRE_MAPPING = {
 
 def _make_case(
     db_session,
+    account_id,
     *,
     verdict,
     created_at,
@@ -54,6 +55,7 @@ def _make_case(
 ):
     case = Case(
         id=uuid.uuid4(),
+        account_id=account_id,
         created_at=created_at,
         filename="test.eml",
         verdict=verdict,
@@ -70,16 +72,17 @@ def _make_case(
     return case
 
 
-def test_get_remediation_playbook_returns_expected_steps_and_controls(client, db_session):
+def test_get_remediation_playbook_returns_expected_steps_and_controls(authed_client, db_session, test_account):
     case = _make_case(
         db_session,
+        test_account.account.id,
         verdict="malicious",
         created_at=datetime(2026, 1, 5),
         indicators=[CREDENTIAL_INDICATOR, SPF_INDICATOR],
         framework_mappings=MITRE_MAPPING,
     )
 
-    response = client.post(f"/api/cases/{case.id}/remediate")
+    response = authed_client.post(f"/api/cases/{case.id}/remediate")
 
     assert response.status_code == 200
     body = response.json()
@@ -93,110 +96,111 @@ def test_get_remediation_playbook_returns_expected_steps_and_controls(client, db
     ]
 
 
-def test_playbook_for_case_with_no_indicators_is_empty(client, db_session):
-    case = _make_case(db_session, verdict="safe", created_at=datetime(2026, 1, 5))
+def test_playbook_for_case_with_no_indicators_is_empty(authed_client, db_session, test_account):
+    case = _make_case(db_session, test_account.account.id, verdict="safe", created_at=datetime(2026, 1, 5))
 
-    response = client.post(f"/api/cases/{case.id}/remediate")
+    response = authed_client.post(f"/api/cases/{case.id}/remediate")
 
     assert response.status_code == 200
     assert response.json()["steps"] == []
 
 
-def test_remediate_unknown_case_returns_404(client):
-    response = client.post(f"/api/cases/{uuid.uuid4()}/remediate")
+def test_remediate_unknown_case_returns_404(authed_client):
+    response = authed_client.post(f"/api/cases/{uuid.uuid4()}/remediate")
     assert response.status_code == 404
 
 
-def test_action_persists_and_is_reflected_on_next_playbook_fetch(client, db_session):
+def test_action_persists_and_is_reflected_on_next_playbook_fetch(authed_client, db_session, test_account):
     case = _make_case(
         db_session,
+        test_account.account.id,
         verdict="malicious",
         created_at=datetime(2026, 1, 5),
         indicators=[CREDENTIAL_INDICATOR],
         framework_mappings=MITRE_MAPPING,
     )
 
-    action_response = client.post(
+    action_response = authed_client.post(
         f"/api/cases/{case.id}/remediate/RESET_CREDENTIALS/action",
         json={"status": "approved", "note": "confirmed with IT"},
-        headers={"X-Analyst-Id": "alice@example.com"},
     )
 
     assert action_response.status_code == 200
     body = action_response.json()
     assert body["status"] == "approved"
-    assert body["actor"] == "alice@example.com"
+    assert body["actor"] == test_account.user.email
     assert body["note"] == "confirmed with IT"
 
-    playbook_response = client.post(f"/api/cases/{case.id}/remediate")
+    playbook_response = authed_client.post(f"/api/cases/{case.id}/remediate")
     reset_step = next(
         s for s in playbook_response.json()["steps"] if s["step_id"] == "RESET_CREDENTIALS"
     )
     assert reset_step["status"] == "approved"
-    assert reset_step["actor"] == "alice@example.com"
+    assert reset_step["actor"] == test_account.user.email
 
 
-def test_action_uses_default_analyst_id_when_no_header_sent(client, db_session):
+def test_action_uses_authenticated_users_email(authed_client, db_session, test_account):
     case = _make_case(
-        db_session, verdict="malicious", created_at=datetime(2026, 1, 5), indicators=[CREDENTIAL_INDICATOR]
+        db_session, test_account.account.id, verdict="malicious", created_at=datetime(2026, 1, 5), indicators=[CREDENTIAL_INDICATOR]
     )
 
-    response = client.post(
+    response = authed_client.post(
         f"/api/cases/{case.id}/remediate/RESET_CREDENTIALS/action", json={"status": "approved"}
     )
 
-    assert response.json()["actor"] == "anonymous-analyst"
+    assert response.json()["actor"] == test_account.user.email
 
 
-def test_reacting_on_a_step_keeps_history_and_shows_latest_status(client, db_session):
+def test_reacting_on_a_step_keeps_history_and_shows_latest_status(authed_client, db_session, test_account):
     case = _make_case(
-        db_session, verdict="malicious", created_at=datetime(2026, 1, 5), indicators=[CREDENTIAL_INDICATOR]
+        db_session, test_account.account.id, verdict="malicious", created_at=datetime(2026, 1, 5), indicators=[CREDENTIAL_INDICATOR]
     )
 
-    client.post(f"/api/cases/{case.id}/remediate/RESET_CREDENTIALS/action", json={"status": "approved"})
-    client.post(f"/api/cases/{case.id}/remediate/RESET_CREDENTIALS/action", json={"status": "done"})
+    authed_client.post(f"/api/cases/{case.id}/remediate/RESET_CREDENTIALS/action", json={"status": "approved"})
+    authed_client.post(f"/api/cases/{case.id}/remediate/RESET_CREDENTIALS/action", json={"status": "done"})
 
     rows = db_session.query(RemediationAction).filter(RemediationAction.case_id == case.id).all()
     assert len(rows) == 2  # append-only history preserved
 
-    playbook_response = client.post(f"/api/cases/{case.id}/remediate")
+    playbook_response = authed_client.post(f"/api/cases/{case.id}/remediate")
     reset_step = next(
         s for s in playbook_response.json()["steps"] if s["step_id"] == "RESET_CREDENTIALS"
     )
     assert reset_step["status"] == "done"
 
 
-def test_action_on_step_not_applicable_to_case_returns_400(client, db_session):
+def test_action_on_step_not_applicable_to_case_returns_400(authed_client, db_session, test_account):
     # SPF_INDICATOR alone does not trigger RESET_CREDENTIALS.
     case = _make_case(
-        db_session, verdict="malicious", created_at=datetime(2026, 1, 5), indicators=[SPF_INDICATOR]
+        db_session, test_account.account.id, verdict="malicious", created_at=datetime(2026, 1, 5), indicators=[SPF_INDICATOR]
     )
 
-    response = client.post(
+    response = authed_client.post(
         f"/api/cases/{case.id}/remediate/RESET_CREDENTIALS/action", json={"status": "approved"}
     )
 
     assert response.status_code == 400
 
 
-def test_action_on_unknown_case_returns_404(client):
-    response = client.post(
+def test_action_on_unknown_case_returns_404(authed_client):
+    response = authed_client.post(
         f"/api/cases/{uuid.uuid4()}/remediate/RESET_CREDENTIALS/action", json={"status": "approved"}
     )
     assert response.status_code == 404
 
 
-def test_get_targets_aggregates_and_stores_recommendation_once_threshold_crossed(client, db_session):
+def test_get_targets_aggregates_and_stores_recommendation_once_threshold_crossed(authed_client, db_session, test_account):
     for i in range(3):
         _make_case(
             db_session,
+            test_account.account.id,
             verdict="malicious",
             created_at=datetime(2026, 1, i + 1),
             indicators=[CREDENTIAL_INDICATOR],
             to_addresses=["alice@example.com"],
         )
 
-    response = client.get("/api/targets")
+    response = authed_client.get("/api/targets")
 
     assert response.status_code == 200
     body = response.json()
@@ -210,23 +214,27 @@ def test_get_targets_aggregates_and_stores_recommendation_once_threshold_crossed
 
     stored = (
         db_session.query(TrainingRecommendation)
-        .filter(TrainingRecommendation.recipient == "alice@example.com")
+        .filter(
+            TrainingRecommendation.account_id == test_account.account.id,
+            TrainingRecommendation.recipient == "alice@example.com",
+        )
         .first()
     )
     assert stored is not None
     assert stored.hit_count == 3
 
 
-def test_get_targets_excludes_recipients_below_threshold(client, db_session):
+def test_get_targets_excludes_recipients_below_threshold(authed_client, db_session, test_account):
     _make_case(
         db_session,
+        test_account.account.id,
         verdict="malicious",
         created_at=datetime(2026, 1, 1),
         indicators=[CREDENTIAL_INDICATOR],
         to_addresses=["bob@example.com"],
     )
 
-    response = client.get("/api/targets")
+    response = authed_client.get("/api/targets")
     bob = next(t for t in response.json()["targets"] if t["recipient"] == "bob@example.com")
 
     assert bob["flagged_for_training"] is False
@@ -234,18 +242,37 @@ def test_get_targets_excludes_recipients_below_threshold(client, db_session):
 
     stored = (
         db_session.query(TrainingRecommendation)
-        .filter(TrainingRecommendation.recipient == "bob@example.com")
+        .filter(
+            TrainingRecommendation.account_id == test_account.account.id,
+            TrainingRecommendation.recipient == "bob@example.com",
+        )
         .first()
     )
     assert stored is None
 
 
+def test_targets_are_isolated_per_account(authed_client, other_account_authed_client, db_session, test_account):
+    _make_case(
+        db_session,
+        test_account.account.id,
+        verdict="malicious",
+        created_at=datetime(2026, 1, 1),
+        indicators=[CREDENTIAL_INDICATOR],
+        to_addresses=["carol@example.com"],
+    )
+
+    other_response = other_account_authed_client.get("/api/targets")
+    assert other_response.status_code == 200
+    assert other_response.json()["targets"] == []
+
+
 # --- Guardrail: nothing here is destructive or reaches outside the process ---------------
 
 
-def test_remediate_action_only_persists_state_no_side_effects_on_case(client, db_session):
+def test_remediate_action_only_persists_state_no_side_effects_on_case(authed_client, db_session, test_account):
     case = _make_case(
         db_session,
+        test_account.account.id,
         verdict="malicious",
         created_at=datetime(2026, 1, 5),
         indicators=[CREDENTIAL_INDICATOR],
@@ -261,7 +288,7 @@ def test_remediate_action_only_persists_state_no_side_effects_on_case(client, db
         "subject": case.subject,
     }
 
-    client.post(f"/api/cases/{case.id}/remediate/RESET_CREDENTIALS/action", json={"status": "approved"})
+    authed_client.post(f"/api/cases/{case.id}/remediate/RESET_CREDENTIALS/action", json={"status": "approved"})
 
     db_session.expire_all()
     refreshed = db_session.get(Case, case.id)

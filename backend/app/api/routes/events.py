@@ -5,20 +5,24 @@ warranted, an incident case — nothing here blocks, isolates, or otherwise alte
 external system. An incident is only created when the fused verdict for an actor's event
 window is non-safe (see app.detections/app.scoring.intrusion_risk_engine) — events are
 continuous telemetry, so persisting a "safe" incident per actor per batch would flood the
-incidents table with routine activity.
+incidents table with routine activity. Requires auth; every event/baseline/incident is
+scoped to the authenticated user's account (M8 Stage 2) — two accounts with an
+identically-named actor never share a baseline or a detection window.
 """
 
 from __future__ import annotations
 
 import uuid
 from datetime import timedelta
+from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
 from app.baselines.aggregation import BaselineSnapshot, empty_baseline, update_baseline
 from app.core.config import settings
-from app.db.models import ActorBaseline, Event, Incident
+from app.db.models import ActorBaseline, Event, Incident, User
 from app.db.session import get_db
 from app.detections.base import ActorEventWindow
 from app.detections.engine import run_detections
@@ -30,9 +34,10 @@ from app.scoring.intrusion_risk_engine import fuse
 router = APIRouter(prefix="/api/events", tags=["events"])
 
 
-def _persist_event(db: Session, event: ActivityEvent) -> Event:
+def _persist_event(db: Session, account_id: UUID, event: ActivityEvent) -> Event:
     row = Event(
         id=event.id or uuid.uuid4(),
+        account_id=account_id,
         timestamp=event.timestamp,
         actor=event.actor,
         source_ip=event.source_ip,
@@ -70,8 +75,12 @@ def _incident_title(actor: str, findings: list[Finding]) -> str:
     return f"{findings[0].title} — {actor}"
 
 
-def _load_baseline_snapshot(db: Session, actor: str) -> BaselineSnapshot:
-    row = db.query(ActorBaseline).filter(ActorBaseline.actor == actor).first()
+def _load_baseline_snapshot(db: Session, account_id: UUID, actor: str) -> BaselineSnapshot:
+    row = (
+        db.query(ActorBaseline)
+        .filter(ActorBaseline.account_id == account_id, ActorBaseline.actor == actor)
+        .first()
+    )
     if row is None:
         return empty_baseline(actor)
     return BaselineSnapshot(
@@ -84,12 +93,17 @@ def _load_baseline_snapshot(db: Session, actor: str) -> BaselineSnapshot:
     )
 
 
-def _persist_baseline(db: Session, snapshot: BaselineSnapshot) -> None:
-    row = db.query(ActorBaseline).filter(ActorBaseline.actor == snapshot.actor).first()
+def _persist_baseline(db: Session, account_id: UUID, snapshot: BaselineSnapshot) -> None:
+    row = (
+        db.query(ActorBaseline)
+        .filter(ActorBaseline.account_id == account_id, ActorBaseline.actor == snapshot.actor)
+        .first()
+    )
     if row is None:
         db.add(
             ActorBaseline(
                 id=uuid.uuid4(),
+                account_id=account_id,
                 actor=snapshot.actor,
                 hour_counts=snapshot.hour_counts,
                 location_counts=snapshot.location_counts,
@@ -109,9 +123,12 @@ def _persist_baseline(db: Session, snapshot: BaselineSnapshot) -> None:
 
 @router.post("", response_model=EventBatchResponse)
 async def ingest_events(
-    body: EventBatchRequest, db: Session = Depends(get_db)
+    body: EventBatchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> EventBatchResponse:
-    persisted_rows = [_persist_event(db, event) for event in body.events]
+    account_id = current_user.account_id
+    persisted_rows = [_persist_event(db, account_id, event) for event in body.events]
     db.flush()
 
     actors = sorted({row.actor for row in persisted_rows})
@@ -126,6 +143,7 @@ async def ingest_events(
         window_rows = (
             db.query(Event)
             .filter(
+                Event.account_id == account_id,
                 Event.actor == actor,
                 Event.timestamp >= window_start,
                 Event.timestamp <= window_end,
@@ -143,12 +161,12 @@ async def ingest_events(
         # inflate its own "normal" and mask itself from the very comparison meant to
         # catch it. The baseline still updates even when nothing fires: routine activity
         # is exactly what should be learned as normal.
-        baseline = _load_baseline_snapshot(db, actor)
+        baseline = _load_baseline_snapshot(db, account_id, actor)
         findings = run_detections(window, baseline)
         score, verdict = fuse(findings)
 
         batch_events = [_to_activity_event(row) for row in actor_batch_rows]
-        _persist_baseline(db, update_baseline(baseline, batch_events))
+        _persist_baseline(db, account_id, update_baseline(baseline, batch_events))
 
         if verdict.value == "safe":
             continue
@@ -157,6 +175,7 @@ async def ingest_events(
 
         incident = Incident(
             id=uuid.uuid4(),
+            account_id=account_id,
             title=_incident_title(actor, findings),
             actor=actor,
             verdict=verdict.value,
@@ -176,9 +195,9 @@ async def ingest_events(
 
         evidence_ids = {eid for f in findings for eid in f.evidence_event_ids}
         if evidence_ids:
-            db.query(Event).filter(Event.id.in_(evidence_ids)).update(
-                {"incident_id": incident.id}, synchronize_session=False
-            )
+            db.query(Event).filter(
+                Event.account_id == account_id, Event.id.in_(evidence_ids)
+            ).update({"incident_id": incident.id}, synchronize_session=False)
 
         incidents_created.append(
             IncidentSummary(

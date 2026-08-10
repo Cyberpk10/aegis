@@ -521,7 +521,7 @@ class AutonomyPolicyRequest(BaseModel):
 
 
 class AutonomyPolicyResponse(BaseModel):
-    tenant_id: str
+    account_id: UUID
     level: AutonomyLevel
     rules: list[AutonomyPolicyRuleSchema]
     exclusions: list[str]
@@ -533,7 +533,7 @@ class AutonomyPolicyResponse(BaseModel):
 
 class AutonomyActionResponse(BaseModel):
     id: UUID
-    tenant_id: str
+    account_id: UUID
     created_at: datetime
     case_id: UUID | None = None
     incident_id: UUID | None = None
@@ -559,7 +559,7 @@ class AutonomyActionListResponse(BaseModel):
 
 
 class AutonomyHaltResponse(BaseModel):
-    tenant_id: str
+    account_id: UUID
     level: AutonomyLevel
     halted_at: datetime
     halted_pending_count: int
@@ -593,3 +593,91 @@ class DriftAlertResponse(BaseModel):
 class DriftAlertListResponse(BaseModel):
     items: list[DriftAlertResponse]
     total: int
+
+
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    ANALYST = "analyst"
+
+
+class UserResponse(BaseModel):
+    id: UUID
+    email: str
+    role: UserRole
+    account_id: UUID
+    account_name: str
+    is_active: bool
+    created_at: datetime
+    last_login_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class SignupRequest(BaseModel):
+    account_name: str = Field(min_length=1, max_length=200)
+    email: str
+    password: str = Field(min_length=12, max_length=200)
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: Literal["bearer"] = "bearer"
+    user: UserResponse
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str
+
+
+class InviteRequest(BaseModel):
+    email: str
+    role: UserRole = UserRole.ANALYST
+
+
+class InviteResponse(BaseModel):
+    id: UUID
+    email: str
+    role: UserRole
+    expires_at: datetime
+    # Stubbed email delivery (M8 Stage 2) — the raw invite link is returned directly rather
+    # than emailed; see app.api.routes.auth.
+    invite_link: str
+
+
+class InviteAcceptRequest(BaseModel):
+    token: str
+    password: str = Field(min_length=12, max_length=200)
+
+
+class PasswordResetRequestRequest(BaseModel):
+    email: str
+
+
+class PasswordResetRequestResponse(BaseModel):
+    message: str
+    # Stubbed email delivery (M8 Stage 2), same as InviteResponse — only ever populated when
+    # the email actually exists, otherwise the message is a generic no-enumeration response.
+    reset_link: str | None = None
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=12, max_length=200)
+
+
+class UserListResponse(BaseModel):
+    items: list[UserResponse]
+
+
+class UserRoleUpdateRequest(BaseModel):
+    role: UserRole

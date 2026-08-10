@@ -7,6 +7,7 @@ DB-aware check.
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -31,7 +32,7 @@ class PolicyRule:
 
 @dataclass(frozen=True)
 class Policy:
-    tenant_id: str
+    account_id: uuid.UUID
     level: str = "L0"
     rules: list[PolicyRule] = field(default_factory=list)
     exclusions: list[str] = field(default_factory=list)  # exact-match protected identities/assets

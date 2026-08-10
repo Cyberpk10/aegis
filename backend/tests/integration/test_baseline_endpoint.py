@@ -36,8 +36,8 @@ def _establishing_batch(actor: str, country: str = "US") -> list[dict]:
     return events
 
 
-def test_establishing_batch_creates_no_incident_and_builds_baseline(client, db_session):
-    response = client.post(
+def test_establishing_batch_creates_no_incident_and_builds_baseline(authed_client, db_session):
+    response = authed_client.post(
         "/api/events", json={"events": _establishing_batch("erin@corp.com")}
     )
 
@@ -57,9 +57,9 @@ def test_establishing_batch_creates_no_incident_and_builds_baseline(client, db_s
 
 
 def test_pattern_breaking_login_fires_anomalous_location_after_baseline_established(
-    client, db_session
+    authed_client, db_session
 ):
-    establish = client.post(
+    establish = authed_client.post(
         "/api/events", json={"events": _establishing_batch("frank@corp.com")}
     )
     assert establish.json()["incidents_created"] == []
@@ -71,7 +71,7 @@ def test_pattern_breaking_login_fires_anomalous_location_after_baseline_establis
 
     # 2026-01-12 is the following Monday — same hour as the established pattern, but a
     # country never seen in frank's baseline.
-    breaking = client.post(
+    breaking = authed_client.post(
         "/api/events",
         json={
             "events": [
@@ -92,7 +92,7 @@ def test_pattern_breaking_login_fires_anomalous_location_after_baseline_establis
     assert len(incidents) == 1
     assert "ANOMALOUS_LOCATION" in incidents[0]["detection_types"]
 
-    detail = client.get(f"/api/incidents/{incidents[0]['id']}")
+    detail = authed_client.get(f"/api/incidents/{incidents[0]['id']}")
     finding_ids = {f["id"] for f in detail.json()["findings"]}
     assert "ANOMALOUS_LOCATION" in finding_ids
     # Established hour (10) on a weekday is within frank's baseline pattern — off-hours
@@ -110,14 +110,14 @@ def test_pattern_breaking_login_fires_anomalous_location_after_baseline_establis
     assert baseline_after.location_counts["RU"] == 1
 
 
-def test_pattern_consistent_login_does_not_fire_after_baseline_established(client, db_session):
-    establish = client.post(
+def test_pattern_consistent_login_does_not_fire_after_baseline_established(authed_client, db_session):
+    establish = authed_client.post(
         "/api/events", json={"events": _establishing_batch("grace@corp.com")}
     )
     assert establish.json()["incidents_created"] == []
 
     # Same hour, same country, same following Monday — matches the established pattern.
-    consistent = client.post(
+    consistent = authed_client.post(
         "/api/events",
         json={
             "events": [

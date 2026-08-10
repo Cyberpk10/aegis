@@ -14,6 +14,12 @@ import AutonomyView from "./components/autonomy/AutonomyView";
 import ControlMonitoringView from "./components/monitoring/ControlMonitoringView";
 import { postAnalyze, AnalyzeError } from "./api/client";
 import type { AnalyzeResponse } from "./types/analysis";
+import { useAuth } from "./auth/AuthContext";
+import AegisLogo from "./components/AegisLogo";
+import LoginScreen from "./auth/LoginScreen";
+import OnboardingScreen from "./auth/OnboardingScreen";
+import ForgotPasswordScreen from "./auth/ForgotPasswordScreen";
+import InviteAcceptScreen from "./auth/InviteAcceptScreen";
 
 type Tab =
   | "analyze"
@@ -25,8 +31,48 @@ type Tab =
   | "autonomy"
   | "monitoring";
 
+type AuthScreen = "login" | "onboarding" | "forgot-password";
+
+function LoadingScreen() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <AegisLogo className="h-10 w-10 animate-pulse" />
+    </div>
+  );
+}
+
 export default function App() {
-  const [tab, setTab] = useState<Tab>("analyze");
+  const { status } = useAuth();
+  const [authScreen, setAuthScreen] = useState<AuthScreen>("login");
+
+  if (status === "loading") {
+    return <LoadingScreen />;
+  }
+
+  if (status === "unauthenticated") {
+    if (window.location.pathname === "/accept-invite") {
+      return <InviteAcceptScreen />;
+    }
+    if (authScreen === "onboarding") {
+      return <OnboardingScreen onSwitchToLogin={() => setAuthScreen("login")} />;
+    }
+    if (authScreen === "forgot-password") {
+      return <ForgotPasswordScreen onBackToLogin={() => setAuthScreen("login")} />;
+    }
+    return (
+      <LoginScreen
+        onSwitchToSignup={() => setAuthScreen("onboarding")}
+        onForgotPassword={() => setAuthScreen("forgot-password")}
+      />
+    );
+  }
+
+  return <AnalyzerApp />;
+}
+
+function AnalyzerApp() {
+  const { user, logout } = useAuth();
+  const [tab, setTab] = useState<Tab>("dashboard");
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -60,8 +106,30 @@ export default function App() {
         }`}
       >
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Aegis</h1>
-          <p className="mt-1 text-slate-600">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <AegisLogo className="h-8 w-8" />
+              <h1 className="text-3xl font-bold text-slate-900">Aegis</h1>
+            </div>
+            {user && (
+              <div className="flex items-center gap-3 text-sm">
+                <div className="text-right leading-tight">
+                  <p className="font-medium text-slate-800">{user.email}</p>
+                  <p className="text-slate-500">
+                    {user.account_name} &middot; {user.role}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => logout()}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 font-medium text-slate-600 transition hover:bg-slate-100"
+                >
+                  Log out
+                </button>
+              </div>
+            )}
+          </div>
+          <p className="mt-3 text-slate-600">
             Upload a <code className="rounded bg-slate-200 px-1 py-0.5 text-sm">.eml</code> file for
             deterministic phishing-indicator analysis.
           </p>

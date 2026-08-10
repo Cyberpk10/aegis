@@ -1,7 +1,8 @@
 """Audit Mode — GET /api/audit/evidence (live per-control evidence preview) and
 POST /api/audit/report (generates + stores a timestamped PDF/JSON evidence pack), plus
 GET /api/audit/reports (list) and GET /api/audit/reports/{id}/download (re-serve the
-stored files) so generated packs are listable and reproducible.
+stored files) so generated packs are listable and reproducible. Requires auth; scoped to
+the authenticated user's account (M8 Stage 2).
 """
 
 from __future__ import annotations
@@ -16,8 +17,9 @@ from sqlalchemy.orm import Session
 
 from app.audit.aggregation import evidence_for_framework
 from app.audit.report_builder import ReportContext, build_json_report, build_pdf_report
+from app.auth.dependencies import get_current_user
 from app.dashboard.aggregation import CaseRow
-from app.db.models import AuditReport, Case
+from app.db.models import AuditReport, Case, User
 from app.db.session import get_db
 from app.mapping.framework_mapper import (
     LoadedFramework,
@@ -65,10 +67,16 @@ def _load_framework_or_404(alias: AuditFramework) -> tuple[str, LoadedFramework]
     return framework_key, framework
 
 
-def _cases_in_period(db: Session, period_start: datetime, period_end: datetime) -> list[CaseRow]:
+def _cases_in_period(
+    db: Session, account_id: UUID, period_start: datetime, period_end: datetime
+) -> list[CaseRow]:
     cases_orm = (
         db.query(Case)
-        .filter(Case.created_at >= period_start, Case.created_at <= period_end)
+        .filter(
+            Case.account_id == account_id,
+            Case.created_at >= period_start,
+            Case.created_at <= period_end,
+        )
         .all()
     )
     return [_to_case_row(c) for c in cases_orm]
@@ -78,12 +86,13 @@ def _cases_in_period(db: Session, period_start: datetime, period_end: datetime) 
 async def get_audit_evidence(
     framework: AuditFramework,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     date_from: datetime | None = None,
     date_to: datetime | None = None,
 ) -> AuditEvidenceResponse:
     framework_key, loaded = _load_framework_or_404(framework)
     period_start, period_end = _resolve_period(date_from, date_to)
-    cases = _cases_in_period(db, period_start, period_end)
+    cases = _cases_in_period(db, current_user.account_id, period_start, period_end)
 
     evidence = evidence_for_framework(cases, loaded.controls_by_id, framework_key)
 
@@ -112,11 +121,13 @@ async def get_audit_evidence(
 
 @router.post("/report", response_model=AuditReportSummary)
 async def generate_audit_report(
-    body: AuditReportRequest, db: Session = Depends(get_db)
+    body: AuditReportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AuditReportSummary:
     framework_key, loaded = _load_framework_or_404(body.framework)
     period_start, period_end = _resolve_period(body.date_from, body.date_to)
-    cases = _cases_in_period(db, period_start, period_end)
+    cases = _cases_in_period(db, current_user.account_id, period_start, period_end)
 
     evidence = evidence_for_framework(cases, loaded.controls_by_id, framework_key)
     operating_controls = sum(1 for e in evidence if e.operating)
@@ -143,6 +154,7 @@ async def generate_audit_report(
 
     report = AuditReport(
         id=report_id,
+        account_id=current_user.account_id,
         framework_key=framework_key,
         period_start=period_start,
         period_end=period_end,
@@ -172,10 +184,15 @@ async def generate_audit_report(
 @router.get("/reports", response_model=AuditReportListResponse)
 async def list_audit_reports(
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ) -> AuditReportListResponse:
-    query = db.query(AuditReport).order_by(AuditReport.created_at.desc())
+    query = (
+        db.query(AuditReport)
+        .filter(AuditReport.account_id == current_user.account_id)
+        .order_by(AuditReport.created_at.desc())
+    )
     total = query.count()
     rows = query.offset((page - 1) * page_size).limit(page_size).all()
 
@@ -200,10 +217,13 @@ async def list_audit_reports(
 
 @router.get("/reports/{report_id}/download")
 async def download_audit_report(
-    report_id: UUID, format: str = Query(..., pattern="^(pdf|json)$"), db: Session = Depends(get_db)
+    report_id: UUID,
+    format: str = Query(..., pattern="^(pdf|json)$"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> Response:
     report = db.get(AuditReport, report_id)
-    if report is None:
+    if report is None or report.account_id != current_user.account_id:
         raise HTTPException(status_code=404, detail="Report not found.")
 
     path = report.pdf_path if format == "pdf" else report.json_path

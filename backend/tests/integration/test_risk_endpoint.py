@@ -11,9 +11,10 @@ CREDENTIAL_REQUEST = {"id": "CREDENTIAL_REQUEST", "category": "content", "title"
 URGENCY_LANGUAGE = {"id": "URGENCY_LANGUAGE", "category": "content", "title": "Urgency", "description": "d", "evidence": [], "severity": "medium", "score": 16.0}
 
 
-def _make_case(db_session, *, verdict, created_at, indicators=None):
+def _make_case(db_session, account_id, *, verdict, created_at, indicators=None):
     case = Case(
         id=uuid.uuid4(),
+        account_id=account_id,
         created_at=created_at,
         filename="test.eml",
         verdict=verdict,
@@ -29,20 +30,20 @@ def _make_case(db_session, *, verdict, created_at, indicators=None):
     return case
 
 
-def _make_label(db_session, case_id, analyst_verdict, created_at):
-    label = Label(id=uuid.uuid4(), case_id=case_id, analyst_verdict=analyst_verdict, labeled_by="tester", created_at=created_at)
+def _make_label(db_session, account_id, case_id, analyst_verdict, created_at):
+    label = Label(id=uuid.uuid4(), account_id=account_id, case_id=case_id, analyst_verdict=analyst_verdict, labeled_by="tester", created_at=created_at)
     db_session.add(label)
     db_session.commit()
 
 
-def test_financial_risk_matches_hand_computed_totals(client, db_session):
-    case_bec = _make_case(db_session, verdict="malicious", created_at=datetime(2026, 1, 5), indicators=[PAYMENT_REQUEST])
-    _make_case(db_session, verdict="malicious", created_at=datetime(2026, 1, 10), indicators=[CREDENTIAL_REQUEST])
-    _make_case(db_session, verdict="suspicious", created_at=datetime(2026, 1, 12), indicators=[URGENCY_LANGUAGE])
-    missed_case = _make_case(db_session, verdict="safe", created_at=datetime(2026, 1, 15), indicators=[])
-    _make_label(db_session, missed_case.id, "malicious", datetime(2026, 1, 16))
+def test_financial_risk_matches_hand_computed_totals(authed_client, db_session, test_account):
+    case_bec = _make_case(db_session, test_account.account.id, verdict="malicious", created_at=datetime(2026, 1, 5), indicators=[PAYMENT_REQUEST])
+    _make_case(db_session, test_account.account.id, verdict="malicious", created_at=datetime(2026, 1, 10), indicators=[CREDENTIAL_REQUEST])
+    _make_case(db_session, test_account.account.id, verdict="suspicious", created_at=datetime(2026, 1, 12), indicators=[URGENCY_LANGUAGE])
+    missed_case = _make_case(db_session, test_account.account.id, verdict="safe", created_at=datetime(2026, 1, 15), indicators=[])
+    _make_label(db_session, test_account.account.id, missed_case.id, "malicious", datetime(2026, 1, 16))
 
-    response = client.get(
+    response = authed_client.get(
         "/api/risk/financial",
         params={"date_from": "2026-01-01T00:00:00", "date_to": "2026-01-31T23:59:59"},
     )
@@ -67,8 +68,8 @@ def test_financial_risk_matches_hand_computed_totals(client, db_session):
     assert body["detection_counts"] == {"malicious": 2, "suspicious": 1, "safe": 1}
 
 
-def test_financial_risk_always_includes_assumptions_even_when_empty(client):
-    response = client.get(
+def test_financial_risk_always_includes_assumptions_even_when_empty(authed_client):
+    response = authed_client.get(
         "/api/risk/financial",
         params={"date_from": "2026-01-01T00:00:00", "date_to": "2026-01-31T23:59:59"},
     )
@@ -83,10 +84,10 @@ def test_financial_risk_always_includes_assumptions_even_when_empty(client):
     assert body["assumptions"]["bec_avg_loss_usd"]["source"]
 
 
-def test_financial_risk_defaults_to_current_quarter_when_no_range_given(client, db_session):
-    _make_case(db_session, verdict="malicious", created_at=datetime.utcnow(), indicators=[PAYMENT_REQUEST])
+def test_financial_risk_defaults_to_current_quarter_when_no_range_given(authed_client, db_session, test_account):
+    _make_case(db_session, test_account.account.id, verdict="malicious", created_at=datetime.utcnow(), indicators=[PAYMENT_REQUEST])
 
-    response = client.get("/api/risk/financial")
+    response = authed_client.get("/api/risk/financial")
 
     assert response.status_code == 200
     body = response.json()

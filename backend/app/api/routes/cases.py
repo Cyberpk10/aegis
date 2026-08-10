@@ -1,16 +1,18 @@
 """GET/DELETE endpoints for browsing and managing persisted analysis cases, plus the
-analyst-feedback POST .../label endpoint (Stage 3)."""
+analyst-feedback POST .../label endpoint (Stage 3). Every endpoint requires auth and is
+scoped to the authenticated user's account (M8 Stage 2) — deleting a case is admin-only."""
 
 from __future__ import annotations
 
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
-from app.db.models import Case, Label
+from app.auth.audit_log import log_event
+from app.auth.dependencies import get_current_user, require_admin
+from app.db.models import Case, Label, User
 from app.db.session import get_db
 from app.models.schemas import (
     CaseDetailResponse,
@@ -25,10 +27,10 @@ from app.storage.raw_email_store import delete_raw_email
 router = APIRouter(prefix="/api/cases", tags=["cases"])
 
 
-def _latest_label(db: Session, case_id: UUID) -> Label | None:
+def _latest_label(db: Session, account_id: UUID, case_id: UUID) -> Label | None:
     return (
         db.query(Label)
-        .filter(Label.case_id == case_id)
+        .filter(Label.account_id == account_id, Label.case_id == case_id)
         .order_by(Label.created_at.desc())
         .first()
     )
@@ -55,6 +57,7 @@ def _to_case_detail(case: Case, latest_label: Label | None) -> CaseDetailRespons
 @router.get("", response_model=CaseListResponse)
 async def list_cases(
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     verdict: Verdict | None = None,
@@ -62,7 +65,7 @@ async def list_cases(
     date_from: datetime | None = None,
     date_to: datetime | None = None,
 ) -> CaseListResponse:
-    query = db.query(Case)
+    query = db.query(Case).filter(Case.account_id == current_user.account_id)
     if verdict is not None:
         query = query.filter(Case.verdict == verdict.value)
     if channel is not None:
@@ -89,18 +92,29 @@ async def list_cases(
 
 
 @router.get("/{case_id}", response_model=CaseDetailResponse)
-async def get_case(case_id: UUID, db: Session = Depends(get_db)) -> CaseDetailResponse:
+async def get_case(
+    case_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> CaseDetailResponse:
     case = db.get(Case, case_id)
-    if case is None:
+    if case is None or case.account_id != current_user.account_id:
         raise HTTPException(status_code=404, detail="Case not found.")
-    return _to_case_detail(case, _latest_label(db, case_id))
+    return _to_case_detail(case, _latest_label(db, current_user.account_id, case_id))
 
 
 @router.delete("/{case_id}", status_code=204)
-async def delete_case(case_id: UUID, db: Session = Depends(get_db)) -> None:
+async def delete_case(
+    case_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(require_admin)
+) -> None:
     case = db.get(Case, case_id)
-    if case is None:
+    if case is None or case.account_id != current_user.account_id:
         raise HTTPException(status_code=404, detail="Case not found.")
+    log_event(
+        db,
+        event_type="case_deleted",
+        account_id=current_user.account_id,
+        user_id=current_user.id,
+        detail={"case_id": str(case_id)},
+    )
     db.delete(case)
     db.commit()
     delete_raw_email(case_id)
@@ -111,19 +125,20 @@ async def label_case(
     case_id: UUID,
     body: LabelRequest,
     db: Session = Depends(get_db),
-    x_analyst_id: str | None = Header(default=None),
+    current_user: User = Depends(get_current_user),
 ) -> LabelResponse:
     """Record an analyst's verdict on a case. Append-only — relabeling inserts a new row
     rather than overwriting the previous one, so the full labeling history is preserved."""
     case = db.get(Case, case_id)
-    if case is None:
+    if case is None or case.account_id != current_user.account_id:
         raise HTTPException(status_code=404, detail="Case not found.")
 
     label = Label(
+        account_id=current_user.account_id,
         case_id=case_id,
         analyst_verdict=body.analyst_verdict.value,
         note=body.note,
-        labeled_by=x_analyst_id or settings.default_analyst_id,
+        labeled_by=current_user.email,
     )
     db.add(label)
     db.commit()

@@ -1,6 +1,6 @@
 """GET /api/dashboard/summary — read-only aggregation over cases/labels for a board-level
 Threat & Compliance view. Nothing new is stored here; pure reporting over what Stages 2-3
-already persist.
+already persist. Requires auth; scoped to the authenticated user's account (M8 Stage 2).
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
 from app.dashboard.aggregation import (
     CaseRow,
     LabelRow,
@@ -20,7 +21,7 @@ from app.dashboard.aggregation import (
     top_indicators,
     verdict_counts,
 )
-from app.db.models import Case, Label
+from app.db.models import Case, Label, User
 from app.db.session import get_db
 from app.mapping.framework_mapper import framework_display_names, total_controls_by_framework
 from app.models.schemas import (
@@ -72,6 +73,7 @@ def _period_delta(current: int, previous: int) -> PeriodCount:
 @router.get("/summary", response_model=DashboardSummaryResponse)
 async def dashboard_summary(
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     date_from: datetime | None = None,
     date_to: datetime | None = None,
     top_n: int = Query(10, ge=1, le=50),
@@ -82,12 +84,20 @@ async def dashboard_summary(
 
     current_cases_orm = (
         db.query(Case)
-        .filter(Case.created_at >= period_start, Case.created_at <= period_end)
+        .filter(
+            Case.account_id == current_user.account_id,
+            Case.created_at >= period_start,
+            Case.created_at <= period_end,
+        )
         .all()
     )
     previous_cases_orm = (
         db.query(Case)
-        .filter(Case.created_at >= previous_period_start, Case.created_at < previous_period_end)
+        .filter(
+            Case.account_id == current_user.account_id,
+            Case.created_at >= previous_period_start,
+            Case.created_at < previous_period_end,
+        )
         .all()
     )
 
@@ -97,7 +107,7 @@ async def dashboard_summary(
     current_case_ids = [c.id for c in current_cases_orm]
     labels_orm = (
         db.query(Label)
-        .filter(Label.case_id.in_(current_case_ids))
+        .filter(Label.account_id == current_user.account_id, Label.case_id.in_(current_case_ids))
         .order_by(Label.case_id, Label.created_at.desc())
         .all()
         if current_case_ids

@@ -19,9 +19,12 @@ _ACTION = ACTIONS[DISABLE_SESSION]
 _INCIDENT_ID = uuid.uuid4()
 
 
+_ACCOUNT_ID = uuid.uuid4()
+
+
 def _policy(level="L2", min_confidence=0.5):
     return Policy(
-        tenant_id="default",
+        account_id=_ACCOUNT_ID,
         level=level,
         rules=[PolicyRule(action_type=DISABLE_SESSION, min_confidence=min_confidence)],
     )
@@ -74,7 +77,7 @@ def test_every_decision_branch_writes_exactly_one_audit_row(db_session):
     # SKIP branch: no rule for this action type at all.
     row = execute_if_authorized(
         db_session,
-        policy=Policy(tenant_id="default", level="L2", rules=[]),
+        policy=Policy(account_id=_ACCOUNT_ID, level="L2", rules=[]),
         blast_radius_limit=10,
         blast_radius_window_minutes=60,
         connector=MockConnector(),

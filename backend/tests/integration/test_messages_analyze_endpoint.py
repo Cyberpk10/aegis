@@ -8,8 +8,8 @@ _EMAIL_ONLY_INDICATOR_IDS = {
 }
 
 
-def test_malicious_slack_message_returns_malicious_verdict_with_shared_and_chat_indicators(client):
-    response = client.post(
+def test_malicious_slack_message_returns_malicious_verdict_with_shared_and_chat_indicators(authed_client):
+    response = authed_client.post(
         "/api/messages/analyze",
         json={
             "channel": "slack",
@@ -44,8 +44,8 @@ def test_malicious_slack_message_returns_malicious_verdict_with_shared_and_chat_
     assert body["summary"]["is_direct_message"] is True
 
 
-def test_benign_chat_message_returns_safe_verdict_with_no_indicators(client):
-    response = client.post(
+def test_benign_chat_message_returns_safe_verdict_with_no_indicators(authed_client):
+    response = authed_client.post(
         "/api/messages/analyze",
         json={
             "channel": "teams",
@@ -64,8 +64,8 @@ def test_benign_chat_message_returns_safe_verdict_with_no_indicators(client):
     assert body["indicators"] == []
 
 
-def test_analyzed_message_persists_as_a_case_with_channel_and_is_filterable(client):
-    response = client.post(
+def test_analyzed_message_persists_as_a_case_with_channel_and_is_filterable(authed_client):
+    response = authed_client.post(
         "/api/messages/analyze",
         json={
             "channel": "slack",
@@ -77,15 +77,15 @@ def test_analyzed_message_persists_as_a_case_with_channel_and_is_filterable(clie
     assert response.status_code == 200
     case_id = response.json()["id"]
 
-    cases_response = client.get("/api/cases", params={"channel": "slack"})
+    cases_response = authed_client.get("/api/cases", params={"channel": "slack"})
     assert cases_response.status_code == 200
     items = cases_response.json()["items"]
     assert any(item["id"] == case_id and item["channel"] == "slack" for item in items)
 
-    detail_response = client.get(f"/api/cases/{case_id}")
+    detail_response = authed_client.get(f"/api/cases/{case_id}")
     assert detail_response.status_code == 200
     assert detail_response.json()["channel"] == "slack"
 
-    email_only_response = client.get("/api/cases", params={"channel": "email"})
+    email_only_response = authed_client.get("/api/cases", params={"channel": "email"})
     assert email_only_response.status_code == 200
     assert all(item["id"] != case_id for item in email_only_response.json()["items"])

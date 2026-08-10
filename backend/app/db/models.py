@@ -16,6 +16,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
     func,
 )
@@ -27,6 +28,132 @@ from app.db.session import Base
 _JSONVariant = JSON().with_variant(JSONB(), "postgresql")
 
 
+class Account(Base):
+    """An organization/tenant (M8 Stage 2) — every User belongs to exactly one Account, and
+    all other data (cases, incidents, events, labels, autonomy policy/actions, ...) is
+    scoped to one via an `account_id` FK. Replaces the earlier stub tenant_id string
+    (M6 Stage 1) with a real row."""
+
+    __tablename__ = "accounts"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class User(Base):
+    """A login identity belonging to exactly one Account (M8 Stage 2). `email` is globally
+    unique — login is by email alone, then the account is resolved from the user, not the
+    other way around. `role` ("admin" | "analyst") gates privileged actions — see
+    app.auth.dependencies.require_admin."""
+
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
+    email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    role: Mapped[str] = mapped_column(String, nullable=False, default="analyst")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class RefreshToken(Base):
+    """A hashed, revocable refresh token (M8 Stage 2) — the raw token is only ever seen by
+    the client; only its hash is stored, same principle as password storage. Rotates on
+    every use (`replaced_by_id` chains the rotation); presenting an already-rotated token
+    is a strong signal of theft and revokes the whole chain (see app.auth.security)."""
+
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    replaced_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("refresh_tokens.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class PasswordResetToken(Base):
+    """A hashed, single-use, expiring password-reset token (M8 Stage 2). Email delivery is
+    stubbed for this stage — the raw token/link is returned directly in the API response
+    (see app.api.routes.auth) rather than actually emailed."""
+
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class Invite(Base):
+    """A pending teammate invite (M8 Stage 2) — same stubbed-email-delivery note as
+    PasswordResetToken. Accepting one (POST /api/auth/invite/accept) creates the User row
+    under `account_id` with `role`."""
+
+    __tablename__ = "invites"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
+    email: Mapped[str] = mapped_column(String, nullable=False)
+    role: Mapped[str] = mapped_column(String, nullable=False, default="analyst")
+    token_hash: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    invited_by_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class AuditLogEntry(Base):
+    """Append-only audit trail of logins and privileged actions (M8 Stage 2) — a distinct
+    concept from AuditReport/Audit Mode above (detection-control coverage evidence, not
+    "who did what to this account"). `account_id`/`user_id` are nullable since a failed
+    login may not resolve either."""
+
+    __tablename__ = "audit_log_entries"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=True
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    event_type: Mapped[str] = mapped_column(String, nullable=False)
+    detail: Mapped[dict | None] = mapped_column(_JSONVariant, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class Case(Base):
     """A persisted analysis result. The raw email itself is never stored here — only
     `raw_email_path`, a pointer to a file on disk that is subject to a retention window
@@ -35,6 +162,9 @@ class Case(Base):
     __tablename__ = "cases"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -75,6 +205,9 @@ class Label(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
     case_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("cases.id", ondelete="CASCADE"), nullable=True
     )
@@ -103,6 +236,9 @@ class AuditReport(Base):
     __tablename__ = "audit_reports"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -134,6 +270,9 @@ class RemediationAction(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
     case_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("cases.id", ondelete="CASCADE"), nullable=True
     )
@@ -159,9 +298,15 @@ class TrainingRecommendation(Base):
     """
 
     __tablename__ = "training_recommendations"
+    __table_args__ = (
+        UniqueConstraint("account_id", "recipient", name="uq_training_recommendations_account_recipient"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    recipient: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
+    recipient: Mapped[str] = mapped_column(String, nullable=False)
     hit_count: Mapped[int] = mapped_column(Integer, nullable=False)
     top_indicator_id: Mapped[str] = mapped_column(String, nullable=False)
     top_indicator_title: Mapped[str] = mapped_column(String, nullable=False)
@@ -188,6 +333,9 @@ class Incident(Base):
     __tablename__ = "incidents"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -217,6 +365,9 @@ class Event(Base):
     __tablename__ = "events"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -249,9 +400,15 @@ class ActorBaseline(Base):
     """
 
     __tablename__ = "actor_baselines"
+    __table_args__ = (
+        UniqueConstraint("account_id", "actor", name="uq_actor_baselines_account_actor"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    actor: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
+    actor: Mapped[str] = mapped_column(String, nullable=False)
     hour_counts: Mapped[list] = mapped_column(_JSONVariant, nullable=False, default=list)
     location_counts: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)
     ip_counts: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)
@@ -269,18 +426,18 @@ class ActorBaseline(Base):
 
 
 class AutonomyPolicy(Base):
-    """A tenant's autonomy configuration (M6 Stage 1) — one row per tenant, upserted (same
-    pattern as TrainingRecommendation/ActorBaseline), not append-only. `tenant_id` is a
-    stub key (default "default") — no full multi-tenant account system exists in Aegis
-    yet; see app.api.routes.autonomy for how it's resolved from an optional request
-    header. `rules`/`exclusions` are plain JSON, parsed into app.autonomy.policy.Policy
-    dataclasses by the route layer — this row is the persisted form, not the evaluation
-    interface."""
+    """An account's autonomy configuration (M6 Stage 1; account-scoped since M8 Stage 2) —
+    one row per account, upserted (same pattern as TrainingRecommendation/ActorBaseline),
+    not append-only. `rules`/`exclusions` are plain JSON, parsed into
+    app.autonomy.policy.Policy dataclasses by the route layer — this row is the persisted
+    form, not the evaluation interface."""
 
     __tablename__ = "autonomy_policies"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
     level: Mapped[str] = mapped_column(String, nullable=False, default="L0")
     rules: Mapped[list] = mapped_column(_JSONVariant, nullable=False, default=list)
     exclusions: Mapped[list] = mapped_column(_JSONVariant, nullable=False, default=list)
@@ -314,7 +471,9 @@ class AutonomyAction(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    tenant_id: Mapped[str] = mapped_column(String, nullable=False)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )

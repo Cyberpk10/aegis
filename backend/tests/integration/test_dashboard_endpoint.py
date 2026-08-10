@@ -6,9 +6,10 @@ from datetime import datetime
 from app.db.models import Case, Label
 
 
-def _make_case(db_session, *, verdict, created_at, indicators=None, framework_mappings=None):
+def _make_case(db_session, account_id, *, verdict, created_at, indicators=None, framework_mappings=None):
     case = Case(
         id=uuid.uuid4(),
+        account_id=account_id,
         created_at=created_at,
         filename="test.eml",
         verdict=verdict,
@@ -24,9 +25,10 @@ def _make_case(db_session, *, verdict, created_at, indicators=None, framework_ma
     return case
 
 
-def _make_label(db_session, case_id, analyst_verdict, created_at):
+def _make_label(db_session, account_id, case_id, analyst_verdict, created_at):
     label = Label(
         id=uuid.uuid4(),
+        account_id=account_id,
         case_id=case_id,
         analyst_verdict=analyst_verdict,
         labeled_by="tester",
@@ -36,7 +38,7 @@ def _make_label(db_session, case_id, analyst_verdict, created_at):
     db_session.commit()
 
 
-def test_dashboard_summary_aggregates_seeded_cases_and_labels(client, db_session):
+def test_dashboard_summary_aggregates_seeded_cases_and_labels(authed_client, db_session, test_account):
     urgency = {
         "id": "URGENCY_LANGUAGE",
         "category": "content",
@@ -79,6 +81,7 @@ def test_dashboard_summary_aggregates_seeded_cases_and_labels(client, db_session
     # Current period (January 2026).
     case_a = _make_case(
         db_session,
+        test_account.account.id,
         verdict="malicious",
         created_at=datetime(2026, 1, 5),
         indicators=[urgency],
@@ -86,22 +89,23 @@ def test_dashboard_summary_aggregates_seeded_cases_and_labels(client, db_session
     )
     case_b = _make_case(
         db_session,
+        test_account.account.id,
         verdict="malicious",
         created_at=datetime(2026, 1, 10),
         indicators=[spf_fail],
         framework_mappings=mitre_spf,
     )
-    _make_case(db_session, verdict="safe", created_at=datetime(2026, 1, 15))
-    _make_case(db_session, verdict="suspicious", created_at=datetime(2026, 1, 20), indicators=[urgency])
+    _make_case(db_session, test_account.account.id, verdict="safe", created_at=datetime(2026, 1, 15))
+    _make_case(db_session, test_account.account.id, verdict="suspicious", created_at=datetime(2026, 1, 20), indicators=[urgency])
 
     # Previous period (December 2025) — only used for the count deltas.
-    _make_case(db_session, verdict="malicious", created_at=datetime(2025, 12, 20))
-    _make_case(db_session, verdict="safe", created_at=datetime(2025, 12, 22))
+    _make_case(db_session, test_account.account.id, verdict="malicious", created_at=datetime(2025, 12, 20))
+    _make_case(db_session, test_account.account.id, verdict="safe", created_at=datetime(2025, 12, 22))
 
-    _make_label(db_session, case_a.id, "malicious", datetime(2026, 1, 6))  # agrees -> TP
-    _make_label(db_session, case_b.id, "suspicious", datetime(2026, 1, 11))  # disagrees -> FP
+    _make_label(db_session, test_account.account.id, case_a.id, "malicious", datetime(2026, 1, 6))  # agrees -> TP
+    _make_label(db_session, test_account.account.id, case_b.id, "suspicious", datetime(2026, 1, 11))  # disagrees -> FP
 
-    response = client.get(
+    response = authed_client.get(
         "/api/dashboard/summary",
         params={"date_from": "2026-01-01T00:00:00", "date_to": "2026-01-31T23:59:59"},
     )
@@ -139,18 +143,18 @@ def test_dashboard_summary_aggregates_seeded_cases_and_labels(client, db_session
     assert mitre["coverage_pct"] == round(100 * 2 / 13, 2)
 
 
-def test_dashboard_summary_defaults_to_last_30_days_when_no_range_given(client, db_session):
-    _make_case(db_session, verdict="safe", created_at=datetime.utcnow())
+def test_dashboard_summary_defaults_to_last_30_days_when_no_range_given(authed_client, db_session, test_account):
+    _make_case(db_session, test_account.account.id, verdict="safe", created_at=datetime.utcnow())
 
-    response = client.get("/api/dashboard/summary")
+    response = authed_client.get("/api/dashboard/summary")
 
     assert response.status_code == 200
     body = response.json()
     assert body["total_analyzed"]["current"] == 1
 
 
-def test_dashboard_summary_handles_empty_database(client):
-    response = client.get(
+def test_dashboard_summary_handles_empty_database(authed_client):
+    response = authed_client.get(
         "/api/dashboard/summary",
         params={"date_from": "2026-01-01T00:00:00", "date_to": "2026-01-31T23:59:59"},
     )

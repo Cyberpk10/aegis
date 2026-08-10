@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
@@ -76,12 +77,6 @@ class Settings:
     )
     raw_email_retention_days: int = field(
         default_factory=lambda: int(os.environ.get("RAW_EMAIL_RETENTION_DAYS", "30"))
-    )
-
-    # Analyst feedback loop (M4/Stage 3). Stub identity for "who labeled this" — an
-    # X-Analyst-Id request header overrides this per-request. Not real auth.
-    default_analyst_id: str = field(
-        default_factory=lambda: os.environ.get("DEFAULT_ANALYST_ID", "anonymous-analyst")
     )
 
     # Audit Mode (M4 Stage 1). Generated evidence-pack PDF/JSON files live here — under
@@ -163,13 +158,6 @@ class Settings:
         default_factory=lambda: int(os.environ.get("BASELINE_DAILY_VOLUME_WINDOW_DAYS", "30"))
     )
 
-    # Autonomous response (M6 Stage 1). Stub tenant identity — no full multi-tenant account
-    # system exists in Aegis yet. An X-Tenant-Id request header overrides this per-request,
-    # same pattern as default_analyst_id/X-Analyst-Id.
-    default_tenant_id: str = field(
-        default_factory=lambda: os.environ.get("DEFAULT_TENANT_ID", "default")
-    )
-
     # Continuous Control Monitoring (M7 Stage A). How far back evidence queries look when
     # computing per-control freshness and drift.
     monitoring_lookback_days: int = field(
@@ -224,6 +212,19 @@ class Settings:
     )
     enable_live_teams_ingestion: bool = field(
         default_factory=lambda: _env_bool("ENABLE_LIVE_TEAMS_INGESTION", False)
+    )
+
+    # Authentication (M8 Stage 2). No safe default for production — if JWT_SECRET_KEY isn't
+    # set, a random value is generated per-process so local dev still works, but every
+    # restart invalidates every existing session. Render MUST have this set explicitly.
+    jwt_secret_key: str = field(
+        default_factory=lambda: os.environ.get("JWT_SECRET_KEY") or secrets.token_urlsafe(64)
+    )
+    jwt_access_token_ttl_minutes: int = field(
+        default_factory=lambda: int(os.environ.get("JWT_ACCESS_TOKEN_TTL_MINUTES", "15"))
+    )
+    jwt_refresh_token_ttl_days: int = field(
+        default_factory=lambda: int(os.environ.get("JWT_REFRESH_TOKEN_TTL_DAYS", "7"))
     )
 
 

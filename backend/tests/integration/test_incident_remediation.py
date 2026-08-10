@@ -28,10 +28,11 @@ MITRE_MAPPING = {
 }
 
 
-def _make_incident(db_session, *, findings=None, framework_mappings=None) -> Incident:
+def _make_incident(db_session, account_id, *, findings=None, framework_mappings=None) -> Incident:
     window_end = datetime(2026, 1, 6, 10, 6)
     incident = Incident(
         id=uuid.uuid4(),
+        account_id=account_id,
         title="Brute force / password spray — alice@corp.com",
         actor="alice@corp.com",
         verdict="suspicious",
@@ -48,10 +49,12 @@ def _make_incident(db_session, *, findings=None, framework_mappings=None) -> Inc
     return incident
 
 
-def test_get_incident_remediation_playbook_returns_expected_steps_and_controls(client, db_session):
-    incident = _make_incident(db_session)
+def test_get_incident_remediation_playbook_returns_expected_steps_and_controls(
+    authed_client, db_session, test_account
+):
+    incident = _make_incident(db_session, test_account.account.id)
 
-    response = client.post(f"/api/incidents/{incident.id}/remediate")
+    response = authed_client.post(f"/api/incidents/{incident.id}/remediate")
 
     assert response.status_code == 200
     body = response.json()
@@ -65,30 +68,31 @@ def test_get_incident_remediation_playbook_returns_expected_steps_and_controls(c
     assert reset_step["control_refs"][0]["control_id"] == "T1110"
 
 
-def test_playbook_for_incident_with_no_findings_is_empty(client, db_session):
-    incident = _make_incident(db_session, findings=[], framework_mappings={})
-    response = client.post(f"/api/incidents/{incident.id}/remediate")
+def test_playbook_for_incident_with_no_findings_is_empty(authed_client, db_session, test_account):
+    incident = _make_incident(db_session, test_account.account.id, findings=[], framework_mappings={})
+    response = authed_client.post(f"/api/incidents/{incident.id}/remediate")
     assert response.status_code == 200
     assert response.json()["steps"] == []
 
 
-def test_incident_remediation_action_persists_and_is_reflected_on_next_fetch(client, db_session):
-    incident = _make_incident(db_session)
+def test_incident_remediation_action_persists_and_is_reflected_on_next_fetch(
+    authed_client, db_session, test_account
+):
+    incident = _make_incident(db_session, test_account.account.id)
 
-    action_response = client.post(
+    action_response = authed_client.post(
         f"/api/incidents/{incident.id}/remediate/FORCE_PASSWORD_RESET/action",
         json={"status": "approved", "note": "reset requested"},
-        headers={"X-Analyst-Id": "soc-analyst"},
     )
     assert action_response.status_code == 200
     action_body = action_response.json()
     assert action_body["incident_id"] == str(incident.id)
     assert action_body["status"] == "approved"
 
-    playbook = client.post(f"/api/incidents/{incident.id}/remediate").json()
+    playbook = authed_client.post(f"/api/incidents/{incident.id}/remediate").json()
     reset_step = next(s for s in playbook["steps"] if s["step_id"] == "FORCE_PASSWORD_RESET")
     assert reset_step["status"] == "approved"
-    assert reset_step["actor"] == "soc-analyst"
+    assert reset_step["actor"] == test_account.user.email
 
     actions = db_session.query(RemediationAction).filter(
         RemediationAction.incident_id == incident.id
@@ -96,13 +100,21 @@ def test_incident_remediation_action_persists_and_is_reflected_on_next_fetch(cli
     assert len(actions) == 1  # the only effect is one recorded state row
 
 
-def test_rejects_action_for_a_step_not_in_the_incidents_playbook(client, db_session):
-    incident = _make_incident(db_session)
-    response = client.post(
+def test_rejects_action_for_a_step_not_in_the_incidents_playbook(authed_client, db_session, test_account):
+    incident = _make_incident(db_session, test_account.account.id)
+    response = authed_client.post(
         f"/api/incidents/{incident.id}/remediate/ISOLATE_HOST/action",
         json={"status": "approved"},
     )
     assert response.status_code == 400
+
+
+def test_incident_remediation_is_isolated_per_account(
+    authed_client, other_account_authed_client, db_session, test_account
+):
+    incident = _make_incident(db_session, test_account.account.id)
+    response = other_account_authed_client.post(f"/api/incidents/{incident.id}/remediate")
+    assert response.status_code == 404
 
 
 # Matches actual import statements / call sites only — not prose mentions (module

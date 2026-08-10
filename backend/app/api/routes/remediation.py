@@ -12,11 +12,14 @@ database.
 
 M6 Stage 1 adds one more side effect to the two playbook-fetch endpoints below: an
 idempotent autonomy policy evaluation (see _run_autonomy_evaluation) that may, per the
-tenant's configured policy, auto-execute a narrow, reversible action through
+account's configured policy, auto-execute a narrow, reversible action through
 app.autonomy.executor.MockConnector. This is the only place in the whole file that can
 result in Aegis actually doing something rather than just recording a human's decision —
 everything about *when* and *whether* it fires is governed by app.autonomy.policy, not by
 this module.
+
+Requires auth; every query/write in this file is scoped to the authenticated user's own
+account_id (M8 Stage 2) — a case/incident belonging to another account resolves to 404.
 """
 
 from __future__ import annotations
@@ -25,14 +28,22 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
 from app.autonomy.actions import ACTIONS, BLOCK_SENDER_DOMAIN, FINDING_ACTION_MAP, confidence_from_scores
 from app.autonomy.executor import MockConnector, execute_if_authorized
 from app.autonomy.store import get_or_create_policy_row, to_policy_dataclass
 from app.core.config import settings
-from app.db.models import AutonomyAction, Case, Incident, RemediationAction, TrainingRecommendation
+from app.db.models import (
+    AutonomyAction,
+    Case,
+    Incident,
+    RemediationAction,
+    TrainingRecommendation,
+    User,
+)
 from app.db.session import get_db
 from app.models.schemas import (
     PlaybookStepResponse,
@@ -66,6 +77,7 @@ def _case_target(case: Case, action_type: str) -> str:
 def _run_autonomy_evaluation(
     db: Session,
     *,
+    account_id: UUID,
     case_id: UUID | None,
     incident_id: UUID | None,
     raw_findings: list[dict],
@@ -87,16 +99,17 @@ def _run_autonomy_evaluation(
         return
 
     existing = db.query(AutonomyAction.action_type).filter(
+        AutonomyAction.account_id == account_id,
         AutonomyAction.case_id == case_id
         if case_id is not None
-        else AutonomyAction.incident_id == incident_id
+        else AutonomyAction.incident_id == incident_id,
     )
     already_evaluated = {row[0] for row in existing.all()}
     pending = {t: items for t, items in by_action.items() if t not in already_evaluated}
     if not pending:
         return
 
-    policy_row = get_or_create_policy_row(db, settings.default_tenant_id)
+    policy_row = get_or_create_policy_row(db, account_id)
     policy = to_policy_dataclass(policy_row)
 
     for action_type, items in pending.items():
@@ -216,7 +229,9 @@ def _build_incident_playbook_response(incident: Incident, db: Session) -> Remedi
 
 @cases_router.post("/{case_id}/remediate", response_model=RemediationPlaybookResponse)
 async def get_case_remediation_playbook(
-    case_id: UUID, db: Session = Depends(get_db)
+    case_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> RemediationPlaybookResponse:
     """Derives the playbook from the case's already-stored indicators and merges in
     whatever approval state already exists — the returned playbook itself is unaffected by
@@ -224,11 +239,12 @@ async def get_case_remediation_playbook(
     any indicator with a mapped autonomy action; safe to call repeatedly — an action type
     already evaluated for this case is never re-evaluated or re-executed."""
     case = db.get(Case, case_id)
-    if case is None:
+    if case is None or case.account_id != current_user.account_id:
         raise HTTPException(status_code=404, detail="Case not found.")
 
     _run_autonomy_evaluation(
         db,
+        account_id=current_user.account_id,
         case_id=case.id,
         incident_id=None,
         raw_findings=case.indicators,
@@ -243,16 +259,19 @@ async def get_case_remediation_playbook(
 
 @incidents_router.post("/{incident_id}/remediate", response_model=RemediationPlaybookResponse)
 async def get_incident_remediation_playbook(
-    incident_id: UUID, db: Session = Depends(get_db)
+    incident_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> RemediationPlaybookResponse:
     """Incident-scoped equivalent of get_case_remediation_playbook, including the same
     idempotent M6 Stage 1 autonomy evaluation side effect."""
     incident = db.get(Incident, incident_id)
-    if incident is None:
+    if incident is None or incident.account_id != current_user.account_id:
         raise HTTPException(status_code=404, detail="Incident not found.")
 
     _run_autonomy_evaluation(
         db,
+        account_id=current_user.account_id,
         case_id=None,
         incident_id=incident.id,
         raw_findings=incident.findings,
@@ -273,12 +292,12 @@ async def record_remediation_action(
     step_id: str,
     body: RemediationActionRequest,
     db: Session = Depends(get_db),
-    x_analyst_id: str | None = Header(default=None),
+    current_user: User = Depends(get_current_user),
 ) -> RemediationActionResponse:
     """Records that an operator approved or completed a step. This is the only write in
     the whole feature, and all it writes is state — it does not perform the step."""
     case = db.get(Case, case_id)
-    if case is None:
+    if case is None or case.account_id != current_user.account_id:
         raise HTTPException(status_code=404, detail="Case not found.")
 
     indicator_ids = [i["id"] for i in case.indicators]
@@ -289,10 +308,11 @@ async def record_remediation_action(
         )
 
     action = RemediationAction(
+        account_id=current_user.account_id,
         case_id=case_id,
         step_id=step_id,
         status=body.status,
-        actor=x_analyst_id or settings.default_analyst_id,
+        actor=current_user.email,
         note=body.note,
     )
     db.add(action)
@@ -318,13 +338,13 @@ async def record_incident_remediation_action(
     step_id: str,
     body: RemediationActionRequest,
     db: Session = Depends(get_db),
-    x_analyst_id: str | None = Header(default=None),
+    current_user: User = Depends(get_current_user),
 ) -> RemediationActionResponse:
     """Incident-scoped equivalent of record_remediation_action. This is the only write in
     the whole feature, and all it writes is state — it does not perform the step (no host
     is isolated, no IP is blocked, no credential is rotated)."""
     incident = db.get(Incident, incident_id)
-    if incident is None:
+    if incident is None or incident.account_id != current_user.account_id:
         raise HTTPException(status_code=404, detail="Incident not found.")
 
     finding_ids = [f["id"] for f in incident.findings]
@@ -335,10 +355,11 @@ async def record_incident_remediation_action(
         )
 
     action = RemediationAction(
+        account_id=current_user.account_id,
         incident_id=incident_id,
         step_id=step_id,
         status=body.status,
-        actor=x_analyst_id or settings.default_analyst_id,
+        actor=current_user.email,
         note=body.note,
     )
     db.add(action)
@@ -357,11 +378,17 @@ async def record_incident_remediation_action(
 
 
 @targets_router.get("", response_model=TargetsListResponse)
-async def get_targets(db: Session = Depends(get_db)) -> TargetsListResponse:
+async def get_targets(
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> TargetsListResponse:
     """Live aggregation over every non-safe case's recipients. For any recipient
     currently at/above the threshold, upserts the stored TrainingRecommendation row
     (idempotent — rewriting the same derived state is not a destructive action)."""
-    cases_orm = db.query(Case).filter(Case.verdict != "safe").all()
+    cases_orm = (
+        db.query(Case)
+        .filter(Case.account_id == current_user.account_id, Case.verdict != "safe")
+        .all()
+    )
     case_rows = [
         TargetCaseRow(
             id=str(case.id),
@@ -380,7 +407,10 @@ async def get_targets(db: Session = Depends(get_db)) -> TargetsListResponse:
         if summary.flagged_for_training:
             existing = (
                 db.query(TrainingRecommendation)
-                .filter(TrainingRecommendation.recipient == summary.recipient)
+                .filter(
+                    TrainingRecommendation.account_id == current_user.account_id,
+                    TrainingRecommendation.recipient == summary.recipient,
+                )
                 .first()
             )
             now = datetime.now(timezone.utc)
@@ -393,6 +423,7 @@ async def get_targets(db: Session = Depends(get_db)) -> TargetsListResponse:
                 first_flagged_at = existing.first_flagged_at
             else:
                 new_row = TrainingRecommendation(
+                    account_id=current_user.account_id,
                     recipient=summary.recipient,
                     hit_count=summary.hit_count,
                     top_indicator_id=summary.top_indicator_id,
