@@ -442,3 +442,38 @@ export interface AutonomyActionListResponse {
   page: number;
   page_size: number;
 }
+
+export type ControlHealthStatus = "operating" | "degraded" | "stale" | "no_evidence";
+
+export interface ControlHealth {
+  framework_key: string;
+  control_id: string;
+  control_name: string;
+  status: ControlHealthStatus;
+  last_evidence_at: string | null;
+  evidence_count: number;
+  expected_interval_days: number;
+}
+
+export interface ControlHealthListResponse {
+  items: ControlHealth[];
+  total: number;
+}
+
+export type DriftAlertType = "went_quiet" | "auth_pass_rate_drop" | "coverage_drop";
+export type DriftAlertSeverity = "medium" | "high" | "critical";
+
+export interface DriftAlert {
+  framework_key: string;
+  control_id: string;
+  control_name: string;
+  type: DriftAlertType;
+  since: string;
+  severity: DriftAlertSeverity;
+  detail: string;
+}
+
+export interface DriftAlertListResponse {
+  items: DriftAlert[];
+  total: number;
+}

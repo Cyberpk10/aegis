@@ -516,3 +516,33 @@ class AutonomyHaltResponse(BaseModel):
     level: AutonomyLevel
     halted_at: datetime
     halted_pending_count: int
+
+
+class ControlHealthResponse(BaseModel):
+    framework_key: str
+    control_id: str
+    control_name: str
+    status: str
+    last_evidence_at: datetime | None = None
+    evidence_count: int
+    expected_interval_days: int
+
+
+class ControlHealthListResponse(BaseModel):
+    items: list[ControlHealthResponse]
+    total: int
+
+
+class DriftAlertResponse(BaseModel):
+    framework_key: str
+    control_id: str
+    control_name: str
+    type: str
+    since: datetime
+    severity: str
+    detail: str
+
+
+class DriftAlertListResponse(BaseModel):
+    items: list[DriftAlertResponse]
+    total: int

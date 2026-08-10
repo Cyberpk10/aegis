@@ -10,8 +10,10 @@ import type {
   AutonomyPolicy,
   CaseDetail,
   CaseListResponse,
+  ControlHealthListResponse,
   CopilotQueryResponse,
   DashboardSummary,
+  DriftAlertListResponse,
   EventBatchResponse,
   FinancialRiskResponse,
   IncidentDetail,
@@ -430,4 +432,26 @@ export async function reverseAutonomyAction(id: string): Promise<void> {
   if (!response.ok) {
     return parseErrorOrThrow(response);
   }
+}
+
+export async function getMonitoringControls(
+  framework?: string
+): Promise<ControlHealthListResponse> {
+  const query = new URLSearchParams();
+  if (framework) query.set("framework", framework);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+
+  const response = await fetch(`/api/monitoring/controls${suffix}`);
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
+}
+
+export async function getMonitoringDrift(): Promise<DriftAlertListResponse> {
+  const response = await fetch("/api/monitoring/drift");
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+  return response.json();
 }

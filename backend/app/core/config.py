@@ -145,5 +145,42 @@ class Settings:
         default_factory=lambda: os.environ.get("DEFAULT_TENANT_ID", "default")
     )
 
+    # Continuous Control Monitoring (M7 Stage A). How far back evidence queries look when
+    # computing per-control freshness and drift.
+    monitoring_lookback_days: int = field(
+        default_factory=lambda: int(os.environ.get("MONITORING_LOOKBACK_DAYS", "180"))
+    )
+    # A control is "operating" if its most recent evidence is within this many days,
+    # unless overridden per-control (see control_monitor.CONTROL_INTERVAL_OVERRIDES_DAYS).
+    monitoring_default_interval_days: int = field(
+        default_factory=lambda: int(os.environ.get("MONITORING_DEFAULT_INTERVAL_DAYS", "14"))
+    )
+    # Multiplied against a control's expected interval to get the degraded/stale boundary.
+    monitoring_stale_multiplier: float = field(
+        default_factory=lambda: float(os.environ.get("MONITORING_STALE_MULTIPLIER", "3.0"))
+    )
+    # Window size (days) for the two adjacent SPF/DKIM/DMARC pass-rate comparison periods.
+    monitoring_auth_window_days: int = field(
+        default_factory=lambda: int(os.environ.get("MONITORING_AUTH_WINDOW_DAYS", "14"))
+    )
+    # Minimum cases required in BOTH windows before an auth-pass-rate-drop alert can fire —
+    # guards against a handful of emails manufacturing a false drift signal.
+    monitoring_auth_min_sample: int = field(
+        default_factory=lambda: int(os.environ.get("MONITORING_AUTH_MIN_SAMPLE", "5"))
+    )
+    # Minimum pass-rate drop (fraction, e.g. 0.15 = 15 points) between windows to alert.
+    monitoring_auth_drop_threshold: float = field(
+        default_factory=lambda: float(os.environ.get("MONITORING_AUTH_DROP_THRESHOLD", "0.15"))
+    )
+    # How far back the "prior" framework-coverage snapshot is taken from, for comparison
+    # against the current one.
+    monitoring_coverage_comparison_days: int = field(
+        default_factory=lambda: int(os.environ.get("MONITORING_COVERAGE_COMPARISON_DAYS", "30"))
+    )
+    # Minimum operating-coverage drop (fraction) between snapshots to alert.
+    monitoring_coverage_drop_threshold: float = field(
+        default_factory=lambda: float(os.environ.get("MONITORING_COVERAGE_DROP_THRESHOLD", "0.10"))
+    )
+
 
 settings = Settings()

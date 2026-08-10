@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getDashboardSummary } from "../../api/client";
 import type { DashboardSummary } from "../../types/analysis";
+import DriftAlertSummary from "./DriftAlertSummary";
 import ExposureAvoidedCard from "./ExposureAvoidedCard";
 import FrameworkCoveragePanel from "./FrameworkCoveragePanel";
 import KpiCards from "./KpiCards";
@@ -93,6 +94,7 @@ export default function DashboardView() {
 
           <TopIndicatorsTable indicators={summary.top_indicators} />
           <FrameworkCoveragePanel coverage={summary.framework_coverage} />
+          <DriftAlertSummary />
           <RepeatTargetsWidget />
           <KriTable kris={summary.kris} />
         </>

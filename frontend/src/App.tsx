@@ -11,10 +11,19 @@ import AuditView from "./components/audit/AuditView";
 import CopilotView from "./components/copilot/CopilotView";
 import DetectionsView from "./components/detections/DetectionsView";
 import AutonomyView from "./components/autonomy/AutonomyView";
+import ControlMonitoringView from "./components/monitoring/ControlMonitoringView";
 import { postAnalyze, AnalyzeError } from "./api/client";
 import type { AnalyzeResponse } from "./types/analysis";
 
-type Tab = "analyze" | "cases" | "dashboard" | "audit" | "copilot" | "detections" | "autonomy";
+type Tab =
+  | "analyze"
+  | "cases"
+  | "dashboard"
+  | "audit"
+  | "copilot"
+  | "detections"
+  | "autonomy"
+  | "monitoring";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("analyze");
@@ -44,7 +53,8 @@ export default function App() {
           tab === "audit" ||
           tab === "copilot" ||
           tab === "detections" ||
-          tab === "autonomy"
+          tab === "autonomy" ||
+          tab === "monitoring"
             ? "max-w-6xl"
             : "max-w-3xl"
         }`}
@@ -56,7 +66,18 @@ export default function App() {
             deterministic phishing-indicator analysis.
           </p>
           <nav className="mt-4 flex gap-1 border-b border-slate-200">
-            {(["analyze", "cases", "dashboard", "detections", "audit", "copilot", "autonomy"] as const).map((t) => (
+            {(
+              [
+                "analyze",
+                "cases",
+                "dashboard",
+                "detections",
+                "monitoring",
+                "audit",
+                "copilot",
+                "autonomy",
+              ] as const
+            ).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -79,6 +100,8 @@ export default function App() {
         {tab === "detections" && <DetectionsView />}
 
         {tab === "autonomy" && <AutonomyView />}
+
+        {tab === "monitoring" && <ControlMonitoringView />}
 
         {tab === "audit" && <AuditView />}
 
