@@ -1,9 +1,11 @@
 # Render Blueprint (M8 Stage 1) — "New +" -> "Blueprint" in the Render dashboard, pointed at
 # this repo, provisions both resources below in one step. See DEPLOYMENT.md for the full
-# step-by-step walkthrough, including the manual (non-Blueprint) equivalent if this file's
-# schema drifts from what your Render account's dashboard expects — Render's blueprint syntax
-# has changed over time, so if the Blueprint import fails to parse, create the two resources by
-# hand instead and set the env vars below directly.
+# step-by-step walkthrough, including the manual (non-Blueprint) equivalent as a fallback.
+#
+# The DATABASE_URL fromDatabase wiring below produces a bare `postgresql://...` connection
+# string — app.core.config.settings normalizes that to `postgresql+psycopg://...` at read
+# time (this app depends on psycopg v3, not the legacy psycopg2 SQLAlchemy defaults to),
+# so no manual URL editing is needed here.
 
 databases:
   - name: aegis-db

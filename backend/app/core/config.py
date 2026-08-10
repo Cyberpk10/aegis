@@ -23,6 +23,19 @@ def _env_bool(name: str, default: bool) -> bool:
     return raw.strip().lower() in _TRUTHY
 
 
+def _normalize_database_url(url: str) -> str:
+    """Managed Postgres providers (Render, Heroku, ...) hand back a bare `postgres://` or
+    `postgresql://` connection string, which implies SQLAlchemy's legacy default driver
+    (psycopg2). This app depends on psycopg (v3, via `psycopg[binary]`) instead — without
+    this rewrite, `create_engine()` tries to import psycopg2 (not installed) and crashes
+    immediately at process startup, before the app or Alembic ever run."""
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url[len("postgres://") :]
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url[len("postgresql://") :]
+    return url
+
+
 @dataclass
 class Settings:
     # M8 Stage 1 (production hosting). "development" locally by default; Render sets this to
@@ -52,7 +65,9 @@ class Settings:
     # Persistence (M3/Stage 2). SQLite by default so the app and test suite run with zero
     # setup; point DATABASE_URL at the docker-compose Postgres for a real deployment.
     database_url: str = field(
-        default_factory=lambda: os.environ.get("DATABASE_URL", "sqlite:///./aegis.db")
+        default_factory=lambda: _normalize_database_url(
+            os.environ.get("DATABASE_URL", "sqlite:///./aegis.db")
+        )
     )
     # Raw .eml files are stored on disk (never in the DB) and purged after this many days —
     # only a path pointer lives in the `cases` table.

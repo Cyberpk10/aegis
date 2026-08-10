@@ -20,7 +20,10 @@ COPY alembic ./alembic
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
-RUN useradd --create-home --shell /usr/sbin/nologin appuser
+# /app is root-owned by default (WORKDIR/COPY run as root above) — appuser needs write
+# access for anything the app creates at runtime (e.g. data/ storage dirs on first use).
+RUN useradd --create-home --shell /usr/sbin/nologin appuser \
+    && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000
