@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.analysis import email_pipeline as email_pipeline_module
 from app.api.routes import analyze as analyze_module
 from tests.conftest import FIXTURES_DIR
 
@@ -102,7 +103,7 @@ def test_llm_reasoning_enabled_populates_narrative(authed_client, load_eml, monk
     def fake_narrative(parsed_email, indicators, score, verdict):
         return "Mocked analyst narrative describing the phishing risk.", "claude-haiku-4-5"
 
-    monkeypatch.setattr(analyze_module, "generate_analyst_narrative", fake_narrative)
+    monkeypatch.setattr(email_pipeline_module, "generate_analyst_narrative", fake_narrative)
 
     raw = load_eml("phishing_lookalike_paypal.eml")
     response = authed_client.post(

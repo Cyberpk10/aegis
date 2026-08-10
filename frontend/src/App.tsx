@@ -12,6 +12,7 @@ import CopilotView from "./components/copilot/CopilotView";
 import DetectionsView from "./components/detections/DetectionsView";
 import AutonomyView from "./components/autonomy/AutonomyView";
 import ControlMonitoringView from "./components/monitoring/ControlMonitoringView";
+import SettingsView from "./components/settings/SettingsView";
 import { postAnalyze, AnalyzeError } from "./api/client";
 import type { AnalyzeResponse } from "./types/analysis";
 import { useAuth } from "./auth/AuthContext";
@@ -20,6 +21,7 @@ import LoginScreen from "./auth/LoginScreen";
 import OnboardingScreen from "./auth/OnboardingScreen";
 import ForgotPasswordScreen from "./auth/ForgotPasswordScreen";
 import InviteAcceptScreen from "./auth/InviteAcceptScreen";
+import WelcomeForwardingScreen from "./auth/WelcomeForwardingScreen";
 
 type Tab =
   | "analyze"
@@ -29,7 +31,8 @@ type Tab =
   | "copilot"
   | "detections"
   | "autonomy"
-  | "monitoring";
+  | "monitoring"
+  | "settings";
 
 type AuthScreen = "login" | "onboarding" | "forgot-password";
 
@@ -42,7 +45,7 @@ function LoadingScreen() {
 }
 
 export default function App() {
-  const { status } = useAuth();
+  const { status, justSignedUp, acknowledgeSignupWelcome } = useAuth();
   const [authScreen, setAuthScreen] = useState<AuthScreen>("login");
 
   if (status === "loading") {
@@ -65,6 +68,10 @@ export default function App() {
         onForgotPassword={() => setAuthScreen("forgot-password")}
       />
     );
+  }
+
+  if (justSignedUp) {
+    return <WelcomeForwardingScreen onContinue={acknowledgeSignupWelcome} />;
   }
 
   return <AnalyzerApp />;
@@ -144,6 +151,7 @@ function AnalyzerApp() {
                 "audit",
                 "copilot",
                 "autonomy",
+                "settings",
               ] as const
             ).map((t) => (
               <button
@@ -174,6 +182,8 @@ function AnalyzerApp() {
         {tab === "audit" && <AuditView />}
 
         {tab === "copilot" && <CopilotView />}
+
+        {tab === "settings" && <SettingsView />}
 
         {tab === "analyze" && (
           <>

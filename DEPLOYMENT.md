@@ -8,7 +8,8 @@ frontend each need the other's URL, so there's a short back-and-forth at steps 5
 
 - **Accounts**: GitHub (free), Render (free to create; the resources below cost money — see
   below), Vercel (you may already have one). Optionally an Anthropic API key if you want the LLM
-  analyst narrative / copilot on in production — off by default, same as local dev.
+  analyst narrative / copilot on in production — off by default, same as local dev. If you want
+  email forwarding intake (M8 Stage 3), also a free Mailgun account — see step 8.
 - **Cost**: this guide uses Render's **Starter** web service (~$7/mo, always-on) and **Basic-256mb**
   Postgres (~$6–7/mo, persistent) — roughly **$13–14/mo total**. Render also has free tiers for
   both (web service sleeps after 15 min idle; Postgres auto-deletes 30 days after creation) if
@@ -16,8 +17,11 @@ frontend each need the other's URL, so there's a short back-and-forth at steps 5
   for `plan: free` if so, and skip that database expiring being a problem for you. Confirm
   current prices at [render.com/pricing](https://render.com/pricing) before entering a card —
   they change over time. Vercel's Hobby plan (used below) is free.
-- **No custom domain needed** — Render and Vercel both give you free HTTPS on their own
-  subdomains (`*.onrender.com` / `*.vercel.app`).
+- **No custom domain needed for the app itself** — Render and Vercel both give you free HTTPS on
+  their own subdomains (`*.onrender.com` / `*.vercel.app`). Email forwarding intake (step 8) is
+  the one exception: receiving mail requires MX records, which only work on a domain you actually
+  control DNS for — not possible on a Render/Vercel-managed subdomain. Skip step 8 entirely if you
+  don't need that feature yet; everything else works without it.
 
 ## 1. Push this repo to GitHub
 
@@ -123,6 +127,37 @@ Open the Vercel URL in a browser:
 
 That's a live, HTTPS, production Aegis deployment.
 
+## 8. (Optional) Email forwarding intake (M8 Stage 3) — Mailgun setup
+
+Lets users forward suspicious emails to a per-account address (shown on the app's Settings tab)
+instead of only uploading `.eml` files. Requires a domain you control DNS for.
+
+1. Create a free [Mailgun](https://www.mailgun.com) account (100 emails/day, 1 inbound route,
+   no time limit — no credit card needed for the free tier at signup).
+2. **Sending → Domains** → add a receiving subdomain, e.g. `in.<yourdomain>.com` (a subdomain,
+   not your apex domain — keeps this fully isolated from any existing mail/DNS on the root
+   domain). Mailgun shows you MX records to add; add them at your DNS provider and wait for
+   verification (usually minutes, can take longer).
+3. **Receiving → Routes** → create a route:
+   - **Filter**: `match_recipient("^pilot-[a-z0-9]+@in\.<yourdomain>\.com$")` (swap in your real
+     subdomain; this one regex matches every account's address, so you never touch this again as
+     new accounts sign up).
+   - **Action**: `forward("https://<your-backend>.onrender.com/api/inbound/email/mime")` — the
+     `/mime` suffix is what makes Mailgun include the full raw original email (`body-mime`)
+     instead of its own parsed-apart fields; without it the webhook still works but falls back to
+     a lower-fidelity reconstruction (see `app.inbound.mailgun.extract_raw_email`).
+4. **Sending → Webhooks** → copy the **HTTP webhook signing key** (this is *not* your API key —
+   it's a separate value used only to verify inbound webhook authenticity).
+5. On the Render service, set `MAILGUN_WEBHOOK_SIGNING_KEY` (the value from step 4) and
+   `INBOUND_EMAIL_DOMAIN` (the subdomain from step 2, e.g. `in.yourdomain.com`) — same
+   `sync: false` prompt-for-value pattern as `JWT_SECRET_KEY`. Redeploy.
+6. Verify: sign in to Aegis, open the **Settings** tab, copy the forwarding address shown there
+   (`pilot-<token>@in.yourdomain.com`), and forward yourself a real (or sample) phishing email to
+   it. A new Case should appear in the Cases tab within a few seconds. `curl -I
+   https://<your-backend>.onrender.com/api/inbound/email/mime` (a bare GET, no valid payload)
+   should return `405` (route exists, wrong method) rather than `404` — confirms the route is
+   live even before you have a real forwarded email to test with.
+
 ## Notes for later
 
 - `ENABLE_LLM_REASONING`/`ENABLE_COPILOT` are both off by default in `render.yaml`, matching
@@ -138,3 +173,10 @@ That's a live, HTTPS, production Aegis deployment.
   the backend and returned directly in the API response rather than emailed (no email provider is
   wired up yet) — an admin can find/relay them via `GET /api/auth/users` and the invite/reset
   endpoints, or by looking at the `invite_link`/`reset_link` field in the API response.
+- **Email forwarding intake (M8 Stage 3)**: forwarded-email analysis is best-effort for anything
+  other than a `message/rfc822` attachment forward — a plain "hit Forward" in Gmail/Outlook/Apple
+  Mail is text-marker-parsed, which recovers the original sender/subject/body but *not* the
+  original `Authentication-Results` header (SPF/DKIM/DMARC-based indicators on those cases reflect
+  the forwarder's mail server, not the original attacker's — see `app.inbound.unwrap`). A Case is
+  deduplicated per-account by content hash, so retries or an accidental double-forward of the
+  exact same email don't create duplicate Cases.

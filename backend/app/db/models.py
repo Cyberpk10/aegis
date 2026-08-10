@@ -13,6 +13,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -38,6 +39,11 @@ class Account(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    # Opaque per-account slug used in the inbound-email forwarding address
+    # (pilot-<inbound_token>@<settings.inbound_email_domain>, M8 Stage 3) — deliberately not
+    # the account's own id, so the address typed into mail clients/tickets/screenshots never
+    # exposes the real internal identifier. See app.auth.security.generate_inbound_token.
+    inbound_token: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -160,6 +166,9 @@ class Case(Base):
     (see app.storage.raw_email_store)."""
 
     __tablename__ = "cases"
+    __table_args__ = (
+        Index("ix_cases_account_content_hash", "account_id", "content_hash"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     account_id: Mapped[uuid.UUID] = mapped_column(
@@ -184,6 +193,10 @@ class Case(Base):
     analyst_narrative: Mapped[str | None] = mapped_column(Text, nullable=True)
     analyst_model: Mapped[str | None] = mapped_column(String, nullable=True)
     raw_email_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    # sha256 hex of the final (post-unwrap) raw email bytes — only ever set by the inbound
+    # webhook (M8 Stage 3), used to dedupe a provider retry or a duplicate forward against
+    # the same account. Null for every other intake path (manual upload, chat messages).
+    content_hash: Mapped[str | None] = mapped_column(String, nullable=True)
 
     labels: Mapped[list["Label"]] = relationship(
         back_populates="case", cascade="all, delete-orphan"

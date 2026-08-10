@@ -6,12 +6,12 @@ import pytest
 from fastapi import HTTPException
 
 from app.auth.dependencies import get_current_user, require_admin
-from app.auth.security import create_access_token, hash_password
+from app.auth.security import create_access_token, generate_inbound_token, hash_password
 from app.db.models import Account, User
 
 
 def _make_user(db_session, *, role="analyst", is_active=True) -> User:
-    account = Account(id=uuid.uuid4(), name="Test Account")
+    account = Account(id=uuid.uuid4(), name="Test Account", inbound_token=generate_inbound_token())
     db_session.add(account)
     db_session.flush()
     user = User(

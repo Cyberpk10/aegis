@@ -227,5 +227,31 @@ class Settings:
         default_factory=lambda: int(os.environ.get("JWT_REFRESH_TOKEN_TTL_DAYS", "7"))
     )
 
+    # Email forwarding intake (M8 Stage 3). No safe default for the signing key — an unset
+    # value means the webhook hard-rejects everything (see app.api.routes.inbound) rather
+    # than silently accepting unsigned requests. Get this from Mailgun's Sending -> Webhooks
+    # page (a different value from the API key).
+    mailgun_webhook_signing_key: str = field(
+        default_factory=lambda: os.environ.get("MAILGUN_WEBHOOK_SIGNING_KEY", "")
+    )
+    # The domain forwarding addresses are shown as (pilot-<token>@<this>) — must match the
+    # domain the Mailgun receiving route is actually configured on. See DEPLOYMENT.md.
+    inbound_email_domain: str = field(
+        default_factory=lambda: os.environ.get("INBOUND_EMAIL_DOMAIN", "in.aegis.example.com")
+    )
+    # Replay-attack defense in depth — Mailgun's own HMAC signature never expires on its own,
+    # so a captured payload could otherwise be replayed indefinitely.
+    inbound_email_signature_max_age_seconds: int = field(
+        default_factory=lambda: int(os.environ.get("INBOUND_EMAIL_SIGNATURE_MAX_AGE_SECONDS", "900"))
+    )
+    # Per-account cap on inbound-forwarded emails per hour — a provider's webhook traffic all
+    # comes from a small set of source IPs, so per-IP rate limiting (as used on /api/auth/*)
+    # doesn't actually throttle per-tenant abuse here; this does.
+    inbound_email_rate_limit_per_account_per_hour: int = field(
+        default_factory=lambda: int(
+            os.environ.get("INBOUND_EMAIL_RATE_LIMIT_PER_ACCOUNT_PER_HOUR", "30")
+        )
+    )
+
 
 settings = Settings()

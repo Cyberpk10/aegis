@@ -15,6 +15,11 @@ interface AuthContextValue {
   /** Tokens are already stored (e.g. by authClient.acceptInvite) — this just brings React
    * state in sync so the app renders as authenticated without a page reload. */
   applySession: (user: UserResponse) => void;
+  /** True for exactly one render cycle right after signup() resolves — lets App.tsx show
+   * the forwarding-address screen once, before the dashboard, without any server-side
+   * "has completed onboarding" flag. Never true after a login or a page reload. */
+  justSignedUp: boolean;
+  acknowledgeSignupWelcome: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -22,6 +27,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<UserResponse | null>(null);
+  const [justSignedUp, setJustSignedUp] = useState(false);
 
   const dropSession = useCallback(() => {
     setUser(null);
@@ -58,11 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = useCallback(async (accountName: string, email: string, password: string) => {
     const response = await apiSignup(accountName, email, password);
     setUser(response.user);
+    setJustSignedUp(true);
     setStatus("authenticated");
   }, []);
 
   const logout = useCallback(async () => {
     await apiLogout();
+    setJustSignedUp(false);
     dropSession();
   }, [dropSession]);
 
@@ -71,9 +79,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus("authenticated");
   }, []);
 
+  const acknowledgeSignupWelcome = useCallback(() => setJustSignedUp(false), []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, login, signup, logout, applySession }),
-    [status, user, login, signup, logout, applySession]
+    () => ({
+      status,
+      user,
+      login,
+      signup,
+      logout,
+      applySession,
+      justSignedUp,
+      acknowledgeSignupWelcome,
+    }),
+    [status, user, login, signup, logout, applySession, justSignedUp, acknowledgeSignupWelcome]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

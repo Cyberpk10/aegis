@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.auth.rate_limit import limiter
-from app.auth.security import create_access_token, hash_password
+from app.auth.security import create_access_token, generate_inbound_token, hash_password
 from app.core.config import settings
 from app.db.models import Account, User
 from app.db.session import Base, get_db
@@ -138,7 +138,7 @@ def _create_account_and_user(
     account_name: str = "Test Account",
 ) -> AuthedActor:
     if account_id is None:
-        account = Account(id=uuid.uuid4(), name=account_name)
+        account = Account(id=uuid.uuid4(), name=account_name, inbound_token=generate_inbound_token())
         db.add(account)
         db.flush()
     else:

@@ -20,12 +20,14 @@ from app.auth.dependencies import get_current_user, require_admin
 from app.auth.rate_limit import AUTH_RATE_LIMIT, limiter
 from app.auth.security import (
     create_access_token,
+    generate_inbound_token,
     generate_opaque_token,
     hash_password,
     hash_token,
     refresh_token_expiry,
     verify_password,
 )
+from app.core.config import settings
 from app.db.models import Account, Invite, PasswordResetToken, RefreshToken, User
 from app.db.session import get_db
 from app.models.schemas import (
@@ -56,20 +58,25 @@ def _client_ip(request: Request) -> str | None:
     return request.client.host if request.client else None
 
 
-def _to_user_response(user: User, account_name: str) -> UserResponse:
+def _forwarding_address(account: Account) -> str:
+    return f"pilot-{account.inbound_token}@{settings.inbound_email_domain}"
+
+
+def _to_user_response(user: User, account: Account) -> UserResponse:
     return UserResponse(
         id=user.id,
         email=user.email,
         role=user.role,
         account_id=user.account_id,
-        account_name=account_name,
+        account_name=account.name,
+        forwarding_address=_forwarding_address(account),
         is_active=user.is_active,
         created_at=user.created_at,
         last_login_at=user.last_login_at,
     )
 
 
-def _issue_tokens(db: Session, user: User, account_name: str) -> tuple[TokenResponse, RefreshToken]:
+def _issue_tokens(db: Session, user: User, account: Account) -> tuple[TokenResponse, RefreshToken]:
     access_token = create_access_token(user.id)
     raw_refresh = generate_opaque_token()
     refresh_row = RefreshToken(
@@ -82,7 +89,7 @@ def _issue_tokens(db: Session, user: User, account_name: str) -> tuple[TokenResp
     response = TokenResponse(
         access_token=access_token,
         refresh_token=raw_refresh,
-        user=_to_user_response(user, account_name),
+        user=_to_user_response(user, account),
     )
     return response, refresh_row
 
@@ -100,7 +107,7 @@ async def signup(request: Request, body: SignupRequest, db: Session = Depends(ge
     if db.query(User).filter(User.email == email).first() is not None:
         raise HTTPException(status_code=409, detail="An account with this email already exists.")
 
-    account = Account(name=body.account_name.strip())
+    account = Account(name=body.account_name.strip(), inbound_token=generate_inbound_token())
     db.add(account)
     db.flush()
 
@@ -120,7 +127,7 @@ async def signup(request: Request, body: SignupRequest, db: Session = Depends(ge
         user_id=user.id,
         ip_address=_client_ip(request),
     )
-    response, _ = _issue_tokens(db, user, account.name)
+    response, _ = _issue_tokens(db, user, account)
     db.commit()
     return response
 
@@ -149,7 +156,7 @@ async def login(request: Request, body: LoginRequest, db: Session = Depends(get_
     log_event(
         db, event_type="login_success", account_id=user.account_id, user_id=user.id, ip_address=ip
     )
-    response, _ = _issue_tokens(db, user, account.name)
+    response, _ = _issue_tokens(db, user, account)
     db.commit()
     return response
 
@@ -192,7 +199,7 @@ async def refresh(body: RefreshRequest, db: Session = Depends(get_db)) -> TokenR
     account = db.get(Account, user.account_id)
 
     row.revoked_at = datetime.utcnow()
-    response, new_row = _issue_tokens(db, user, account.name)
+    response, new_row = _issue_tokens(db, user, account)
     row.replaced_by_id = new_row.id
     db.commit()
     return response
@@ -201,7 +208,7 @@ async def refresh(body: RefreshRequest, db: Session = Depends(get_db)) -> TokenR
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> UserResponse:
     account = db.get(Account, current_user.account_id)
-    return _to_user_response(current_user, account.name)
+    return _to_user_response(current_user, account)
 
 
 @router.post("/invite", response_model=InviteResponse)
@@ -278,7 +285,7 @@ async def accept_invite(
         user_id=user.id,
         ip_address=_client_ip(request),
     )
-    response, _ = _issue_tokens(db, user, account.name)
+    response, _ = _issue_tokens(db, user, account)
     db.commit()
     return response
 
@@ -349,7 +356,7 @@ async def list_users(
 ) -> UserListResponse:
     account = db.get(Account, current_user.account_id)
     rows = db.query(User).filter(User.account_id == current_user.account_id).order_by(User.created_at).all()
-    return UserListResponse(items=[_to_user_response(u, account.name) for u in rows])
+    return UserListResponse(items=[_to_user_response(u, account) for u in rows])
 
 
 @router.patch("/users/{user_id}", response_model=UserResponse)
@@ -374,7 +381,7 @@ async def update_user_role(
     db.commit()
     db.refresh(target)
     account = db.get(Account, current_user.account_id)
-    return _to_user_response(target, account.name)
+    return _to_user_response(target, account)
 
 
 @router.delete("/users/{user_id}", status_code=204)

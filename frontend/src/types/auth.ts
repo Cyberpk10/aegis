@@ -6,6 +6,8 @@ export interface UserResponse {
   role: UserRole;
   account_id: string;
   account_name: string;
+  // The account's inbound-email forwarding address (M8 Stage 3) — pilot-<token>@<domain>.
+  forwarding_address: string;
   is_active: boolean;
   created_at: string;
   last_login_at: string | null;

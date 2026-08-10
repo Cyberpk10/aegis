@@ -95,6 +95,17 @@ class AnalyzeResponse(BaseModel):
     analyst_model: str | None = None
 
 
+class InboundEmailResponse(BaseModel):
+    """Response for POST /api/inbound/email/mime (M8 Stage 3) — deliberately lighter than
+    AnalyzeResponse: the provider (Mailgun) never reads this body, it only needs a 2xx, and
+    the "duplicate" status is a short-circuit before a fresh EmailSummary would ever exist."""
+
+    status: Literal["created", "duplicate", "rejected"]
+    case_id: UUID | None = None
+    verdict: Verdict | None = None
+    score: int | None = None
+
+
 class ChatMessageSummary(BaseModel):
     """The `summary` shape for a chat (Slack/Teams) analyze response — EmailSummary's
     email-only fields (reply_to_address, auth_results) don't apply here."""
@@ -606,6 +617,9 @@ class UserResponse(BaseModel):
     role: UserRole
     account_id: UUID
     account_name: str
+    # The account's inbound-email forwarding address (M8 Stage 3) — pilot-<token>@<domain>,
+    # shown on the frontend onboarding/Settings screen with a copy-to-clipboard button.
+    forwarding_address: str
     is_active: bool
     created_at: datetime
     last_login_at: datetime | None = None

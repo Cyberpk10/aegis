@@ -72,6 +72,20 @@ def generate_opaque_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+_INBOUND_TOKEN_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
+_INBOUND_TOKEN_LENGTH = 12
+
+
+def generate_inbound_token() -> str:
+    """A short, URL/email-safe slug for an account's inbound-email forwarding address
+    (M8 Stage 3, pilot-<token>@<domain>) — lowercase alnum only so it reads cleanly typed
+    into a mail client's "Forward to" field. ~62 bits of entropy (36^12), plenty for an
+    unguessable low-stakes routing token; unlike refresh/reset tokens this isn't gating
+    access to anything itself — the provider's HMAC signature is the real authentication,
+    this only selects which account a verified-authentic email belongs to."""
+    return "".join(secrets.choice(_INBOUND_TOKEN_ALPHABET) for _ in range(_INBOUND_TOKEN_LENGTH))
+
+
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
