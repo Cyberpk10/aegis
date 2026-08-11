@@ -502,8 +502,30 @@ class AutonomyAction(Base):
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
     policy_rule: Mapped[dict | None] = mapped_column(_JSONVariant, nullable=True)
     decision: Mapped[str] = mapped_column(String, nullable=False)
-    # "executed" | "reversed" | "pending_approval" | "skipped" | "halted"
+    # "executed" | "reversed" | "pending_approval" | "skipped" | "halted" | "execution_failed"
+    # (the last one, M6 Stage 2: a real connector's execute() raised — recorded, not crashed)
     status: Mapped[str] = mapped_column(String, nullable=False)
     result: Mapped[dict | None] = mapped_column(_JSONVariant, nullable=True)
     reversible: Mapped[bool] = mapped_column(Boolean, nullable=False)
     mapped_controls: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)
+
+
+class GraphIntegration(Base):
+    """An account's connection to its own Microsoft 365 tenant (M6 Stage 2) — one row per
+    account. Only the non-secret `tenant_id` lives here; the Microsoft Graph app registration's
+    client_id/client_secret are a single, global Render env var pair shared across every
+    account (see app.core.config.settings), not stored per-account. `is_enabled` lets an admin
+    pause real Graph actions without deleting the connection (falls back to MockConnector —
+    see app.autonomy.connector_factory)."""
+
+    __tablename__ = "graph_integrations"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    tenant_id: Mapped[str] = mapped_column(String, nullable=False)
+    connected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

@@ -263,5 +263,18 @@ class Settings:
         )
     )
 
+    # Real Microsoft Graph autonomous-response connector (M6 Stage 2). A single Azure AD app
+    # registration shared across every account (multi-tenant; each customer's admin consents
+    # it into their own tenant) — these two are the only Graph secrets that exist, and there's
+    # exactly one of each, not one per account. Either unset means every account falls back to
+    # MockConnector (see app.autonomy.connector_factory) — no real action ever fires
+    # unconfigured. See DEPLOYMENT.md for the full Azure app registration walkthrough.
+    microsoft_graph_client_id: str = field(
+        default_factory=lambda: os.environ.get("MICROSOFT_GRAPH_CLIENT_ID", "")
+    )
+    microsoft_graph_client_secret: str = field(
+        default_factory=lambda: os.environ.get("MICROSOFT_GRAPH_CLIENT_SECRET", "")
+    )
+
 
 settings = Settings()

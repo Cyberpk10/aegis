@@ -62,3 +62,11 @@ services:
       # DEPLOYMENT.md) — shown to users as pilot-<token>@<this>.
       - key: INBOUND_EMAIL_DOMAIN
         sync: false
+      # Real Microsoft Graph autonomous-response connector (M6 Stage 2). One multi-tenant
+      # Azure AD app registration's credentials, shared across every account — unset means
+      # every account safely falls back to MockConnector, no real action ever fires. See
+      # DEPLOYMENT.md for the full Azure app registration walkthrough.
+      - key: MICROSOFT_GRAPH_CLIENT_ID
+        sync: false
+      - key: MICROSOFT_GRAPH_CLIENT_SECRET
+        sync: false

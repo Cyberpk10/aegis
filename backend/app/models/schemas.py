@@ -576,6 +576,17 @@ class AutonomyHaltResponse(BaseModel):
     halted_pending_count: int
 
 
+class GraphIntegrationRequest(BaseModel):
+    tenant_id: str = Field(min_length=1, max_length=200)
+
+
+class GraphIntegrationResponse(BaseModel):
+    connected: bool
+    tenant_id: str | None = None
+    connected_at: datetime | None = None
+    is_enabled: bool = False
+
+
 class ControlHealthResponse(BaseModel):
     framework_key: str
     control_id: str

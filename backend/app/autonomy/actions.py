@@ -1,8 +1,15 @@
 """The autonomy action catalog (M6 Stage 1) — deliberately small and reversible-first.
-Every action here has a working reverse() path through app.autonomy.executor.ActionConnector;
-there is no fifth, destructive action defined anywhere in this module. "Destructive actions
-are never auto-eligible" is therefore a structural property, not a policy setting that could
-be misconfigured — there is simply no connector method to delete or destroy anything.
+There is no fifth, destructive action defined anywhere in this module — no connector method
+deletes or destroys anything, ever. "Destructive actions are never auto-eligible" is therefore
+a structural property, not a policy setting that could be misconfigured.
+
+Most actions here have a working reverse() path through app.autonomy.executor.ActionConnector.
+DISABLE_SESSION (M6 Stage 2) is the one exception: Microsoft Graph has no API to un-revoke a
+session once it's been revoked — there's nothing to technically restore, the user just signs
+back in on their own — so it's marked reversible=False rather than pretending a meaningless
+reverse() exists. Per app.autonomy.policy.evaluate()'s existing rule for any irreversible
+action, this means DISABLE_SESSION always requires human approval before firing; it was never
+about being "more dangerous" than the other actions, just that a real "undo" doesn't exist.
 """
 
 from __future__ import annotations
@@ -49,7 +56,9 @@ ACTIONS: dict[str, ActionDefinition] = {
     DISABLE_SESSION: ActionDefinition(
         type=DISABLE_SESSION,
         title="Disable session",
-        reversible=True,  # reverse = re-enable session — never delete the account
+        # No reverse: Microsoft Graph has no API to un-revoke a session (see module docstring).
+        # Never delete the account either way — this only ever revokes sign-in sessions.
+        reversible=False,
         containment=True,
         min_confidence_floor=0.6,
     ),

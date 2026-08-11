@@ -15,6 +15,7 @@ from app.db.models import (  # noqa: F401 - imports register models on Base.meta
     AutonomyPolicy,
     Case,
     Event,
+    GraphIntegration,
     Incident,
     Invite,
     Label,

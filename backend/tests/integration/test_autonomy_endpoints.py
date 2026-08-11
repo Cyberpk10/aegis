@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from app.autonomy.actions import ACTIONS, DISABLE_SESSION
+from app.autonomy.actions import ACTIONS, BLOCK_SENDER_DOMAIN, DISABLE_SESSION
 from app.autonomy.executor import MockConnector, execute_if_authorized
 from app.autonomy.policy import Policy, PolicyRule
 from app.db.models import AutonomyAction
@@ -152,20 +152,23 @@ def test_reverse_endpoint_rejects_a_pending_approval_row(authed_client, db_sessi
 
 
 def test_reverse_endpoint_succeeds_on_an_executed_reversible_row(authed_client, db_session, test_account):
+    # BLOCK_SENDER_DOMAIN, not DISABLE_SESSION — DISABLE_SESSION is reversible=False (M6
+    # Stage 2, no Graph API to un-revoke a session), so it can never reach "executed" +
+    # reversible=True the way this test needs.
     incident_id = uuid.uuid4()
     row = execute_if_authorized(
         db_session,
         policy=Policy(
             account_id=test_account.account.id,
             level="L2",
-            rules=[PolicyRule(action_type=DISABLE_SESSION, min_confidence=0.1)],
+            rules=[PolicyRule(action_type=BLOCK_SENDER_DOMAIN, min_confidence=0.1)],
         ),
         blast_radius_limit=10,
         blast_radius_window_minutes=60,
         connector=MockConnector(),
-        action=ACTIONS[DISABLE_SESSION],
+        action=ACTIONS[BLOCK_SENDER_DOMAIN],
         confidence=0.9,
-        target="alice@corp.com",
+        target="evil.com",
         scope="activity",
         trigger_finding_id="BRUTE_FORCE_PASSWORD_SPRAY",
         case_id=None,
@@ -210,3 +213,57 @@ def test_reverse_endpoint_404s_for_another_accounts_action(
 
     response = other_account_authed_client.post(f"/api/autonomy/actions/{row.id}/reverse")
     assert response.status_code == 404
+
+
+# --- Microsoft Graph integration (M6 Stage 2) ---------------------------------------------
+
+
+def test_get_graph_integration_defaults_to_not_connected(authed_client):
+    response = authed_client.get("/api/autonomy/graph-integration")
+    assert response.status_code == 200
+    assert response.json() == {
+        "connected": False,
+        "tenant_id": None,
+        "connected_at": None,
+        "is_enabled": False,
+    }
+
+
+def test_put_graph_integration_round_trips(authed_client):
+    put_response = authed_client.put(
+        "/api/autonomy/graph-integration", json={"tenant_id": "11111111-2222-3333-4444-555555555555"}
+    )
+    assert put_response.status_code == 200
+    body = put_response.json()
+    assert body["connected"] is True
+    assert body["tenant_id"] == "11111111-2222-3333-4444-555555555555"
+    assert body["is_enabled"] is True
+    assert body["connected_at"] is not None
+
+    get_response = authed_client.get("/api/autonomy/graph-integration")
+    assert get_response.json()["tenant_id"] == "11111111-2222-3333-4444-555555555555"
+
+
+def test_put_graph_integration_updates_an_existing_row(authed_client):
+    authed_client.put("/api/autonomy/graph-integration", json={"tenant_id": "old-tenant"})
+    second = authed_client.put("/api/autonomy/graph-integration", json={"tenant_id": "new-tenant"})
+
+    assert second.status_code == 200
+    assert second.json()["tenant_id"] == "new-tenant"
+
+    get_response = authed_client.get("/api/autonomy/graph-integration")
+    assert get_response.json()["tenant_id"] == "new-tenant"
+
+
+def test_put_graph_integration_requires_admin(analyst_authed_client):
+    response = analyst_authed_client.put(
+        "/api/autonomy/graph-integration", json={"tenant_id": "some-tenant"}
+    )
+    assert response.status_code == 403
+
+
+def test_graph_integration_is_isolated_per_account(authed_client, other_account_authed_client):
+    authed_client.put("/api/autonomy/graph-integration", json={"tenant_id": "account-a-tenant"})
+
+    other_response = other_account_authed_client.get("/api/autonomy/graph-integration")
+    assert other_response.json()["connected"] is False

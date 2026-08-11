@@ -26,6 +26,17 @@ def save_raw_email(case_id: uuid.UUID, raw_bytes: bytes) -> str:
     return str(path)
 
 
+def load_raw_email(path: str) -> bytes | None:
+    """Read-side counterpart to save_raw_email (M6 Stage 2 — the real Graph connector needs
+    the original Message-ID header to locate a message in the mailbox). Returns None rather
+    than raising if the file is missing (already purged by retention, or never saved) — the
+    caller treats that the same as "no Message-ID available" and degrades gracefully."""
+    try:
+        return Path(path).read_bytes()
+    except OSError:
+        return None
+
+
 def delete_raw_email(case_id: uuid.UUID) -> None:
     path = _storage_dir() / f"{case_id}.eml"
     path.unlink(missing_ok=True)

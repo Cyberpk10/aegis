@@ -1,8 +1,9 @@
 """Enforces the policy decision, the blast-radius rate limit, and records everything
 (M6 Stage 1). This is the only place that actually calls a connector — nowhere else in the
-autonomy package performs I/O. Stage 1 wires only MockConnector, per the explicit ask to
-keep everything offline/deterministic; a real connector is a future stage's concern and
-only needs to implement this same ActionConnector interface.
+autonomy package performs I/O. Stage 1 shipped only MockConnector, fully offline/deterministic;
+M6 Stage 2 adds a real one (app.autonomy.graph_connector.GraphConnector) implementing this same
+ActionConnector interface — MockConnector remains the default everywhere it isn't explicitly
+swapped out (see app.autonomy.connector_factory), so every existing offline test is unaffected.
 """
 
 from __future__ import annotations
@@ -75,12 +76,18 @@ def execute_if_authorized(
     case_id: uuid.UUID | None,
     incident_id: uuid.UUID | None,
     now: datetime | None = None,
+    params: dict | None = None,
 ) -> AutonomyAction:
     """Evaluates policy, applies the blast-radius override, executes via `connector` if
     authorized, and always writes exactly one AutonomyAction audit row — for every decision
     branch, not just auto-executed ones. Does not commit; the caller controls the
-    transaction boundary (same pattern as app.baselines' _persist_baseline)."""
+    transaction boundary (same pattern as app.baselines' _persist_baseline).
+
+    `params` is extra context a real connector needs beyond the bare `target` string (e.g.
+    GraphConnector needs the recipient mailbox + Message-ID to locate an email) — MockConnector
+    ignores it entirely, so every existing caller that omits it is unaffected."""
     now = now or datetime.now(timezone.utc)
+    params = params or {}
 
     decision = evaluate(policy, action, confidence, target, scope)
 
@@ -112,8 +119,15 @@ def execute_if_authorized(
 
     result = None
     if decision == PolicyDecision.AUTO_EXECUTE:
-        result = connector.execute(action.type, target, {})
-        status = "executed"
+        try:
+            result = connector.execute(action.type, target, params)
+            status = "executed"
+        except Exception as exc:  # noqa: BLE001 - a real connector's network/API failure must
+            # never crash the caller (this runs during a page-load, not a user-initiated
+            # action) — record it as a failed action instead, same audit-trail guarantee as
+            # every other branch.
+            result = {"outcome": "failed", "error": str(exc)}
+            status = "execution_failed"
     elif decision == PolicyDecision.REQUIRE_APPROVAL:
         status = "pending_approval"
     else:
@@ -150,7 +164,14 @@ def reverse_action(db: Session, connector: ActionConnector, row: AutonomyAction)
     if not row.reversible:
         raise ValueError(f"Action {row.id} ({row.action_type}) is not reversible.")
 
-    result = connector.reverse(row.action_type, row.target, {})
+    # The original execute() result (e.g. GraphConnector's captured original_folder_id / rule
+    # ids) is exactly what a real reverse needs to know what to undo — MockConnector.reverse()
+    # ignores params entirely, so this is a no-op change for every existing test.
+    try:
+        result = connector.reverse(row.action_type, row.target, row.result or {})
+    except Exception as exc:  # noqa: BLE001 - a user-initiated action; fail loudly, not silently
+        raise ValueError(f"Failed to reverse action {row.id}: {exc}") from exc
+
     row.status = "reversed"
     row.result = {**(row.result or {}), "reverse_result": result}
     db.flush()

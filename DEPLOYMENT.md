@@ -9,7 +9,10 @@ frontend each need the other's URL, so there's a short back-and-forth at steps 5
 - **Accounts**: GitHub (free), Render (free to create; the resources below cost money — see
   below), Vercel (you may already have one). Optionally an Anthropic API key if you want the LLM
   analyst narrative / copilot on in production — off by default, same as local dev. If you want
-  email forwarding intake (M8 Stage 3), also a free Mailgun account — see step 8.
+  email forwarding intake (M8 Stage 3), also a free Mailgun account — see step 8. If you want
+  autonomous response to take real action in a customer's Microsoft 365 tenant (M6 Stage 2)
+  rather than just simulating it, an Azure account to register one app in — see step 9; a free
+  Microsoft 365 Developer Program tenant works for testing this live (see that section).
 - **Cost**: this guide uses Render's **Starter** web service (~$7/mo, always-on) and **Basic-256mb**
   Postgres (~$6–7/mo, persistent) — roughly **$13–14/mo total**. Render also has free tiers for
   both (web service sleeps after 15 min idle; Postgres auto-deletes 30 days after creation) if
@@ -163,6 +166,54 @@ instead of only uploading `.eml` files. Requires a domain you control DNS for.
    should return `405` (route exists, wrong method) rather than `404` — confirms the route is
    live even before you have a real forwarded email to test with.
 
+## 9. (Optional) Real Microsoft 365 autonomous response — Azure app registration (M6 Stage 2)
+
+Everything in this section is optional — every autonomy action (QUARANTINE_EMAIL/
+DISABLE_SESSION/BLOCK_SENDER_DOMAIN) already works today via `MockConnector` (simulated, safe,
+fully offline). This section is what upgrades a *specific connected account* to real actions
+against its own Microsoft 365 tenant — nothing here affects any other account, and any account
+that hasn't gone through this stays on MockConnector automatically.
+
+**One app registration, shared across every future customer** — you do this once, not per
+customer:
+
+1. **Azure Portal → Entra ID → App registrations → New registration.**
+   - Name: e.g. "Aegis Autonomous Response".
+   - Supported account types: **Accounts in any organizational directory (multitenant)** — this
+     lets the one app registration serve every future customer's tenant, not just your own.
+   - No redirect URI — this is a daemon/client-credentials app, nothing signs in interactively.
+2. **API permissions → Add a permission → Microsoft Graph → Application permissions** (not
+   delegated — there's no signed-in user), add `Mail.ReadWrite` (message search/move, inbox rule
+   creation) and `User.RevokeSessions.All` (DISABLE_SESSION), then **Grant admin consent** — for
+   your own tenant this is immediate; for a real future customer, this is the step *their*
+   Global/Application Administrator does via this app's multitenant `/adminconsent` URL, not you.
+3. **Certificates & secrets → New client secret** — copy the value immediately, it's shown once.
+   This is `MICROSOFT_GRAPH_CLIENT_SECRET`.
+4. **Overview page** → copy **Application (client) ID** → `MICROSOFT_GRAPH_CLIENT_ID`.
+5. Set both on the Render service (same `sync: false` prompt-for-value pattern as
+   `JWT_SECRET_KEY`), redeploy.
+
+**Per account, once the app above exists** — connect a specific account's own tenant:
+
+6. That customer's admin consents the app into their tenant (step 2's `/adminconsent` flow, or
+   immediate if it's your own tenant).
+7. `PUT /api/autonomy/graph-integration` (admin-only, authenticated) with `{"tenant_id": "<their
+   Entra Directory (tenant) ID>"}`, found on that tenant's own Entra ID overview page. There's no
+   frontend for this yet — use curl/Postman with the admin's bearer token. `GET
+   /api/autonomy/graph-integration` confirms the connection.
+8. From here, real actions only fire per the normal rules — policy level, confidence gate,
+   exclusions, blast-radius cap all apply exactly as before. Nothing changes about *when* an
+   action fires, only *what actually happens* when one does.
+
+**Yes — a free Microsoft 365 Developer Program tenant works for testing this live.** Sign up at
+[developer.microsoft.com/microsoft-365/dev-program](https://developer.microsoft.com/microsoft-365/dev-program)
+with a Microsoft account; it provisions a full E5-featured sandbox (Exchange Online + Entra ID —
+everything needed here) with 25 user licenses, free, renews automatically for another 90 days as
+long as you're actively using it. Billing info is requested for identity verification only, no
+charge. Use that sandbox's own Directory (tenant) ID as the `tenant_id` in step 7, do the admin
+consent (step 2) directly in that same tenant, then submit a real test phishing email addressed
+to one of the sandbox's mailboxes and confirm it actually moves to an "Aegis Quarantine" folder.
+
 ## Notes for later
 
 - `ENABLE_LLM_REASONING`/`ENABLE_COPILOT` are both off by default in `render.yaml`, matching
@@ -185,3 +236,12 @@ instead of only uploading `.eml` files. Requires a domain you control DNS for.
   the forwarder's mail server, not the original attacker's — see `app.inbound.unwrap`). A Case is
   deduplicated per-account by content hash, so retries or an accidental double-forward of the
   exact same email don't create duplicate Cases.
+- **Real Microsoft Graph autonomy connector (M6 Stage 2)**: `MICROSOFT_GRAPH_CLIENT_ID`/
+  `_CLIENT_SECRET` are a single shared pair, not per-account — never rotate one without updating
+  Render immediately, since every connected account's real actions break at once if it's stale.
+  DISABLE_SESSION is `reversible=False` (there's no Graph API to un-revoke a session), so it
+  always requires human approval before firing — it will never auto-execute at any policy level,
+  by design, not a bug. A connector failure (expired consent, throttling, a message not found in
+  the mailbox) is recorded as `status="execution_failed"` on the AutonomyAction row rather than
+  crashing the request — check `GET /api/autonomy/actions` if a connected account's actions don't
+  seem to be firing.
