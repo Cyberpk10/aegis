@@ -231,6 +231,16 @@ class Settings:
     # value means the webhook hard-rejects everything (see app.api.routes.inbound) rather
     # than silently accepting unsigned requests. Get this from Mailgun's Sending -> Webhooks
     # page (a different value from the API key).
+    #
+    # TODO(deploy): the code path is fully built and tested, but inert in production until a
+    # real domain is registered and pointed at Mailgun. Once you have one:
+    #   1. Mailgun -> Sending -> Domains -> add a receiving subdomain (e.g. in.yourdomain.com),
+    #      add the MX records it gives you at your DNS provider.
+    #   2. Mailgun -> Receiving -> Routes -> create one route:
+    #      match_recipient("^pilot-[a-z0-9]+@in\.yourdomain\.com$")
+    #      -> forward("https://<backend>.onrender.com/api/inbound/email/mime")
+    #   3. Set MAILGUN_WEBHOOK_SIGNING_KEY (Sending -> Webhooks) and INBOUND_EMAIL_DOMAIN on
+    #      Render, redeploy. Full walkthrough: DEPLOYMENT.md section 8.
     mailgun_webhook_signing_key: str = field(
         default_factory=lambda: os.environ.get("MAILGUN_WEBHOOK_SIGNING_KEY", "")
     )

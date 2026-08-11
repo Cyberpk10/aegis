@@ -129,6 +129,11 @@ That's a live, HTTPS, production Aegis deployment.
 
 ## 8. (Optional) Email forwarding intake (M8 Stage 3) — Mailgun setup
 
+**TODO: the only remaining manual step.** The backend code (webhook, signature verification,
+account routing, forwarded-message unwrapping, dedup, rate limiting) is fully built, tested, and
+already deployed — it's just inert (the endpoint 503s) until this section is completed. Nothing
+below requires a code change, only a domain + Mailgun dashboard configuration.
+
 Lets users forward suspicious emails to a per-account address (shown on the app's Settings tab)
 instead of only uploading `.eml` files. Requires a domain you control DNS for.
 
