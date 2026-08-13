@@ -1,5 +1,6 @@
 import { useState } from "react";
 import UploadForm from "./components/UploadForm";
+import PasteEmailForm from "./components/PasteEmailForm";
 import VerdictBadge from "./components/VerdictBadge";
 import AiAuthoredFlag from "./components/AiAuthoredFlag";
 import AIAnalystSummary from "./components/AIAnalystSummary";
@@ -13,7 +14,7 @@ import DetectionsView from "./components/detections/DetectionsView";
 import AutonomyView from "./components/autonomy/AutonomyView";
 import ControlMonitoringView from "./components/monitoring/ControlMonitoringView";
 import SettingsView from "./components/settings/SettingsView";
-import { postAnalyze, AnalyzeError } from "./api/client";
+import { postAnalyze, postAnalyzeText, AnalyzeError } from "./api/client";
 import type { AnalyzeResponse } from "./types/analysis";
 import { useAuth } from "./auth/AuthContext";
 import AegisLogo from "./components/AegisLogo";
@@ -80,16 +81,17 @@ export default function App() {
 function AnalyzerApp() {
   const { user, logout } = useAuth();
   const [tab, setTab] = useState<Tab>("dashboard");
+  const [analyzeMode, setAnalyzeMode] = useState<"upload" | "paste">("upload");
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleAnalyze = async (file: File) => {
+  const runAnalyze = async (request: Promise<AnalyzeResponse>) => {
     setIsLoading(true);
     setError(null);
     setResult(null);
     try {
-      const response = await postAnalyze(file);
+      const response = await request;
       setResult(response);
     } catch (err) {
       setError(err instanceof AnalyzeError ? err.message : "Something went wrong while analyzing the email.");
@@ -97,6 +99,9 @@ function AnalyzerApp() {
       setIsLoading(false);
     }
   };
+
+  const handleAnalyzeFile = (file: File) => runAnalyze(postAnalyze(file));
+  const handleAnalyzeText = (text: string) => runAnalyze(postAnalyzeText(text));
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -188,7 +193,36 @@ function AnalyzerApp() {
         {tab === "analyze" && (
           <>
             <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <UploadForm onSubmit={handleAnalyze} isLoading={isLoading} />
+              <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => setAnalyzeMode("upload")}
+                  className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                    analyzeMode === "upload"
+                      ? "bg-white text-indigo-700 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Upload .eml file
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAnalyzeMode("paste")}
+                  className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                    analyzeMode === "paste"
+                      ? "bg-white text-indigo-700 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Paste email
+                </button>
+              </div>
+
+              {analyzeMode === "upload" ? (
+                <UploadForm onSubmit={handleAnalyzeFile} isLoading={isLoading} />
+              ) : (
+                <PasteEmailForm onSubmit={handleAnalyzeText} isLoading={isLoading} />
+              )}
             </section>
 
             {error && (

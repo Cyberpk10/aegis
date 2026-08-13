@@ -83,6 +83,14 @@ class FrameworkControlRef(BaseModel):
     url: str | None = None
 
 
+class AnalyzeTextRequest(BaseModel):
+    """Raw pasted email content for POST /api/analyze/text — full RFC822/MIME, or just a
+    subject+body fragment, or plain unstructured text. Fed through the same parse_eml()/
+    run_email_pipeline() as a file upload; missing headers simply degrade to empty fields."""
+
+    raw_text: str
+
+
 class AnalyzeResponse(BaseModel):
     id: UUID
     created_at: datetime

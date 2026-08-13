@@ -49,6 +49,20 @@ export async function postAnalyze(file: File): Promise<AnalyzeResponse> {
   return response.json();
 }
 
+export async function postAnalyzeText(rawText: string): Promise<AnalyzeResponse> {
+  const response = await apiFetch(`/api/analyze/text`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ raw_text: rawText }),
+  });
+
+  if (!response.ok) {
+    return parseErrorOrThrow(response);
+  }
+
+  return response.json();
+}
+
 export interface ListCasesParams {
   page?: number;
   pageSize?: number;
