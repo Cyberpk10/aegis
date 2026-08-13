@@ -74,6 +74,8 @@ async def analyze_email(
         framework_mappings=framework_mappings_json,
         analyst_narrative=result.analyst_narrative,
         analyst_model=result.analyst_model,
+        ml_probability=result.ml_probability,
+        ml_model_version=result.ml_model_version,
         raw_email_path=raw_email_path,
     )
     db.add(case)
@@ -90,4 +92,6 @@ async def analyze_email(
         framework_mappings=result.framework_mappings,
         analyst_narrative=result.analyst_narrative,
         analyst_model=result.analyst_model,
+        ml_probability=result.ml_probability,
+        ml_model_version=result.ml_model_version,
     )

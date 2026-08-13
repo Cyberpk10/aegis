@@ -29,6 +29,11 @@ dist/
 backend/aegis.db
 backend/data/
 
-# ML training corpus / artifacts (M3 Stage 1) — never commit raw datasets or models
+# ML training corpus / artifacts (M3) — never commit raw datasets; ml/models/ is ignored except
+# for the committed documentation (CARD.md, metrics.json) carved out below. The actual binary
+# model artifacts live in backend/app/ml/artifacts/ instead (see that directory) — not ignored,
+# since Docker's build context can only see files inside backend/.
 ml/data/
-ml/models/
+ml/models/*
+!ml/models/CARD.md
+!ml/models/metrics.json

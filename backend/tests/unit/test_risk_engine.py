@@ -3,7 +3,13 @@ from __future__ import annotations
 import pytest
 
 from app.models.schemas import Indicator, Severity, Verdict
-from app.scoring.risk_engine import compute_score, fuse, verdict_for_score
+from app.scoring.risk_engine import (
+    ML_MAX_CONTRIBUTION_POINTS,
+    SAFE_MAX,
+    compute_score,
+    fuse,
+    verdict_for_score,
+)
 
 
 def _indicator(score: float) -> Indicator:
@@ -49,3 +55,33 @@ def test_fuse_returns_score_and_verdict():
     score, verdict = fuse([_indicator(60)])
     assert score == 60
     assert verdict == Verdict.MALICIOUS
+
+
+def test_ml_probability_none_is_a_no_op():
+    """The default (no ML signal) path must be byte-identical to the pre-M3 behavior."""
+    assert compute_score([_indicator(10)], ml_probability=None) == compute_score([_indicator(10)])
+
+
+def test_ml_probability_at_one_adds_max_contribution():
+    score = compute_score([_indicator(10)], ml_probability=1.0)
+    assert score == 10 + ML_MAX_CONTRIBUTION_POINTS
+
+
+def test_ml_probability_at_zero_subtracts_max_contribution():
+    score = compute_score([_indicator(10)], ml_probability=0.0)
+    assert score == max(0, 10 - ML_MAX_CONTRIBUTION_POINTS)
+
+
+def test_ml_probability_at_half_is_a_no_op():
+    """0.5 (maximally uncertain) contributes nothing — the blend is centered, not biased."""
+    assert compute_score([_indicator(10)], ml_probability=0.5) == 10
+
+
+@pytest.mark.parametrize("ml_probability", [0.0, 0.25, 0.5, 0.75, 1.0])
+def test_ml_signal_alone_can_never_reach_malicious_from_a_clean_rule_score(ml_probability):
+    """The guardrail, expressed structurally: with zero rule-based indicators, no ML
+    probability (however confident) can push the score past SAFE_MAX, let alone into
+    MALICIOUS — because ML_MAX_CONTRIBUTION_POINTS < SAFE_MAX by construction."""
+    score, verdict = fuse([], ml_probability=ml_probability)
+    assert score <= SAFE_MAX
+    assert verdict == Verdict.SAFE

@@ -89,7 +89,7 @@ def _extract_body(msg: Message) -> str:
 
 
 def record_from_message(
-    msg: Message, *, source: Source, label: Label, original_id: str
+    msg: Message, *, source: Source, label: Label, original_id: str, raw_bytes: bytes
 ) -> EmailRecord:
     raw_headers = "\n".join(f"{key}: {value}" for key, value in msg.items())
     subject = _decode_header_value(msg.get("Subject"))
@@ -104,4 +104,5 @@ def record_from_message(
         from_addr=from_addr,
         label=label,
         source=source,
+        raw_bytes=raw_bytes,
     )

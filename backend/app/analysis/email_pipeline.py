@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from app.core.config import settings
 from app.indicators.engine import run_indicators
+from app.ml.classifier import predict as ml_predict
 from app.mapping.framework_mapper import map_indicators
 from app.models.schemas import FrameworkControlRef, Indicator, Verdict
 from app.parsing.eml_parser import ParsedEmail, parse_eml
@@ -27,16 +28,24 @@ class PipelineResult:
     framework_mappings: dict[str, list[FrameworkControlRef]]
     analyst_narrative: str | None
     analyst_model: str | None
+    ml_probability: float | None
+    ml_model_version: str | None
 
 
 def run_email_pipeline(raw_bytes: bytes) -> PipelineResult:
-    """Parses raw .eml bytes and runs the full rule-based + optional LLM analysis. Raises
-    whatever parse_eml raises on malformed input — callers translate that into their own
+    """Parses raw .eml bytes and runs the full rule-based + optional ML + optional LLM analysis.
+    Raises whatever parse_eml raises on malformed input — callers translate that into their own
     error response (a 400 for a direct upload, a quiet reject for a webhook)."""
     parsed = parse_eml(raw_bytes)
 
     indicators = run_indicators(parsed)
-    score, verdict = fuse(indicators)
+
+    ml_probability: float | None = None
+    ml_model_version: str | None = None
+    if settings.enable_ml_classifier:
+        ml_probability, ml_model_version = ml_predict(parsed, indicators)
+
+    score, verdict = fuse(indicators, ml_probability)
     framework_mappings = map_indicators([i.id for i in indicators])
 
     analyst_narrative: str | None = None
@@ -54,4 +63,6 @@ def run_email_pipeline(raw_bytes: bytes) -> PipelineResult:
         framework_mappings=framework_mappings,
         analyst_narrative=analyst_narrative,
         analyst_model=analyst_model,
+        ml_probability=ml_probability,
+        ml_model_version=ml_model_version,
     )

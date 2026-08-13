@@ -11,12 +11,18 @@ from aegis_ml.schema import EmailRecord, Label, Source
 
 
 def iter_mbox_records(path: Path, *, source: Source, label: Label) -> Iterator[EmailRecord]:
-    """Yields one EmailRecord per message in an mbox file."""
+    """Yields one EmailRecord per message in an mbox file. `mailbox.mbox` hands back fully
+    parsed `email.message.Message` objects, not a clean byte-exact single-message slice of
+    the archive — `.as_bytes()` is a faithful re-serialization (preserves MIME structure,
+    headers, attachments) and is what gets stored as raw_bytes, since that's what actually
+    matters for a later re-parse through the real indicator engine to work correctly."""
     box = mailbox.mbox(str(path), create=False)
     try:
         for index, msg in enumerate(box):
             original_id = msg.get("Message-ID") or f"{path.name}:{index}"
-            yield record_from_message(msg, source=source, label=label, original_id=original_id)
+            yield record_from_message(
+                msg, source=source, label=label, original_id=original_id, raw_bytes=msg.as_bytes()
+            )
     finally:
         box.close()
 
@@ -36,5 +42,9 @@ def iter_single_message_dir_records(
         raw_bytes = path.read_bytes()
         msg = email.message_from_bytes(raw_bytes)
         yield record_from_message(
-            msg, source=source, label=label, original_id=f"{directory.name}/{path.name}"
+            msg,
+            source=source,
+            label=label,
+            original_id=f"{directory.name}/{path.name}",
+            raw_bytes=raw_bytes,
         )

@@ -99,3 +99,14 @@ and under what terms.
 - **No feature fitting before the split.** `split.py` only ever touches deduped raw text/schema
   fields — no vectorizer, no corpus-wide statistic. Whatever fits features in a later M3 stage must
   fit on the `train` split only, to avoid leakage into `val`/`test`.
+
+## Schema addendum: `raw_bytes`
+
+`EmailRecord` also carries the original per-message bytes (`raw_bytes`) alongside the
+already-normalized `subject`/`body_text`/`raw_headers` fields — added specifically so that the
+feature-extraction stage (`ml/aegis_ml/features.py`) can re-parse each record through the real
+backend parser/indicator engine (`app.parsing.eml_parser`, `app.indicators.engine`) rather than
+recomputing indicator-relevant fields from this package's own lighter-weight reconstruction. For
+mbox sources this is a faithful re-serialization (`email.message.Message.as_bytes()`), not
+byte-identical to the original mbox slice; for single-file sources (SpamAssassin, Enron) it is the
+true original bytes read straight off disk. Doesn't change provenance/licensing above.

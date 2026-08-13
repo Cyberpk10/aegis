@@ -30,6 +30,7 @@ EMAIL_RECORD_COLUMNS = [
     "from_addr",
     "label",
     "source",
+    "raw_bytes",
 ]
 
 
@@ -42,6 +43,14 @@ class EmailRecord:
     from_addr: str | None
     label: Label
     source: Source
+    # The actual original message bytes (or, for true mbox sources, a faithful
+    # email.message.Message.as_bytes() re-serialization — see mbox_parser.iter_mbox_records)
+    # — added so a later M3 stage can re-parse each record through the real backend
+    # app.parsing.eml_parser.parse_eml(), instead of this module's own lossy
+    # header-string/flattened-body reconstruction. Without this, indicator-engine features
+    # computed from the corpus would silently diverge from what the same email produces at
+    # real inference time (train/serve skew).
+    raw_bytes: bytes
 
     def to_dict(self) -> dict:
         d = asdict(self)

@@ -46,6 +46,22 @@ def _deterministic_llm_settings(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _deterministic_ml_settings(monkeypatch):
+    """Pin the shared settings singleton to the offline default (ML classifier off) for every
+    test — exact mirror of _deterministic_llm_settings above. Also clears app.ml.classifier's
+    @lru_cache(maxsize=1) loaded-model cache before and after each test, so a test that opts
+    into ENABLE_ML_CLASSIFIER (or points ml_artifacts_dir elsewhere) never leaks its cached
+    model into an unrelated test via that cache, regardless of test order.
+    """
+    from app.ml.classifier import _load_model
+
+    monkeypatch.setattr(settings, "enable_ml_classifier", False)
+    _load_model.cache_clear()
+    yield
+    _load_model.cache_clear()
+
+
 @pytest.fixture()
 def _test_engine():
     """A fresh in-memory SQLite database per test, regardless of a developer's local

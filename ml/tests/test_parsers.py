@@ -39,6 +39,11 @@ def test_iter_mbox_records_parses_headers_subject_body_from_addr(tmp_path):
     assert "Message-ID: <phish1@example.com>" in record.raw_headers
     assert record.label == Label.PHISHING
     assert record.source == Source.NAZARIO
+    # Re-serialized from the parsed Message, not byte-identical to the mbox slice, but a
+    # faithful, independently-parseable RFC822 message — must round-trip through the real
+    # backend eml parser correctly, which is the whole point of carrying raw_bytes at all.
+    assert b"Urgent: verify your account" in record.raw_bytes
+    assert b"attacker@example.com" in record.raw_bytes
 
 
 def test_iter_single_message_dir_records_skips_cmds_file(tmp_path):
@@ -55,6 +60,8 @@ def test_iter_single_message_dir_records_skips_cmds_file(tmp_path):
     assert records[0].subject == "Q3 numbers"
     assert records[0].from_addr == "colleague@enron.com"
     assert records[0].label == Label.BENIGN
+    # The true original bytes, byte-for-byte — not a re-serialization.
+    assert records[0].raw_bytes == RAW_MESSAGE
 
 
 def test_iter_maildir_records_parses_enron_style_messages(tmp_path):
@@ -67,6 +74,7 @@ def test_iter_maildir_records_parses_enron_style_messages(tmp_path):
     assert len(records) == 1
     assert records[0].source == Source.ENRON
     assert records[0].body_text.startswith("Attached are the Q3 numbers")
+    assert records[0].raw_bytes == RAW_MESSAGE
 
 
 def test_invalid_charset_label_in_subject_does_not_crash(tmp_path):

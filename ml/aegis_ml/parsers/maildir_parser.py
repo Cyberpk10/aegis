@@ -15,5 +15,8 @@ def iter_maildir_records(directory: Path, *, source: Source, label: Label) -> It
     for path in sorted(directory.iterdir()):
         if not path.is_file():
             continue
-        msg = email.message_from_bytes(path.read_bytes())
-        yield record_from_message(msg, source=source, label=label, original_id=path.name)
+        raw_bytes = path.read_bytes()
+        msg = email.message_from_bytes(raw_bytes)
+        yield record_from_message(
+            msg, source=source, label=label, original_id=path.name, raw_bytes=raw_bytes
+        )

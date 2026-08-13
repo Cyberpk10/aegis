@@ -1,0 +1,28 @@
+# Aegis M3 — ML training dependencies (corpus assembly, feature extraction, training).
+#
+# Deliberately separate from backend/pyproject.toml's runtime dependencies: training needs
+# pandas/pyarrow/scikit-learn/scipy, which the deployed backend service never does (the backend
+# only needs scikit-learn + joblib, purely for *inference* against an already-trained model —
+# see backend/pyproject.toml). This file is the pip-installable mirror of ml/pyproject.toml's
+# [project.dependencies] — kept in sync by hand since this is a small, slow-changing list.
+#
+#   pip install -r requirements.txt
+#   # or: pip install -e .   (uses pyproject.toml directly, same dependency set)
+#
+# pydantic / pyyaml / python-dotenv are listed not because aegis_ml imports them directly, but
+# because ml/aegis_ml/features.py imports real backend modules (app.parsing.eml_parser,
+# app.indicators.engine) by path for train/serve feature parity, and those modules transitively
+# require them. See that module's docstring.
+
+pandas>=2.2
+pyarrow>=16.0
+scikit-learn>=1.5
+scipy>=1.13
+requests>=2.32
+joblib>=1.4
+pydantic>=2.7
+pyyaml>=6.0
+python-dotenv>=1.0
+
+# Dev/test only
+pytest>=8.0

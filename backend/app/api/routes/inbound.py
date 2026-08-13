@@ -171,6 +171,8 @@ async def receive_inbound_email(
         framework_mappings=framework_mappings_json,
         analyst_narrative=result.analyst_narrative,
         analyst_model=result.analyst_model,
+        ml_probability=result.ml_probability,
+        ml_model_version=result.ml_model_version,
         raw_email_path=raw_email_path,
         content_hash=content_hash,
     )

@@ -276,5 +276,15 @@ class Settings:
         default_factory=lambda: os.environ.get("MICROSOFT_GRAPH_CLIENT_SECRET", "")
     )
 
+    # ML classifier signal (M3). Off by default so the app and test suite stay fully offline
+    # and deterministic unless explicitly opted in — same idiom as enable_llm_reasoning. Even
+    # when on, app.ml.classifier degrades to (None, None) if the artifact files aren't present.
+    enable_ml_classifier: bool = field(
+        default_factory=lambda: _env_bool("ENABLE_ML_CLASSIFIER", False)
+    )
+    # Empty string means "use the default backend/app/ml/artifacts/ location" (see
+    # app.ml.classifier) — only needs overriding for a non-standard deployment layout.
+    ml_artifacts_dir: str = field(default_factory=lambda: os.environ.get("ML_ARTIFACTS_DIR", ""))
+
 
 settings = Settings()

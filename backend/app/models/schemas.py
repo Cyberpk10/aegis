@@ -93,6 +93,8 @@ class AnalyzeResponse(BaseModel):
     framework_mappings: dict[str, list[FrameworkControlRef]]
     analyst_narrative: str | None = None
     analyst_model: str | None = None
+    ml_probability: float | None = None
+    ml_model_version: str | None = None
 
 
 class InboundEmailResponse(BaseModel):
@@ -206,6 +208,8 @@ class CaseDetailResponse(BaseModel):
     framework_mappings: dict[str, list[FrameworkControlRef]]
     analyst_narrative: str | None = None
     analyst_model: str | None = None
+    ml_probability: float | None = None
+    ml_model_version: str | None = None
     latest_label: LabelResponse | None = None
 
     model_config = {"from_attributes": True}

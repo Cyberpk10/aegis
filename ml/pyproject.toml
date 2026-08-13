@@ -7,7 +7,16 @@ dependencies = [
     "pandas>=2.2",
     "pyarrow>=16.0",
     "scikit-learn>=1.5",
+    "scipy>=1.13",
     "requests>=2.32",
+    "joblib>=1.4",
+    # Not used directly by aegis_ml — needed only because aegis_ml/features.py imports the
+    # real backend parsing/indicator code (app.parsing.eml_parser, app.indicators.engine) by
+    # path, for train/serve feature parity. Pinned loosely to whatever the backend itself
+    # requires; see backend/pyproject.toml.
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]

@@ -50,6 +50,8 @@ def _to_case_detail(case: Case, latest_label: Label | None) -> CaseDetailRespons
         framework_mappings=case.framework_mappings,
         analyst_narrative=case.analyst_narrative,
         analyst_model=case.analyst_model,
+        ml_probability=case.ml_probability,
+        ml_model_version=case.ml_model_version,
         latest_label=LabelResponse.model_validate(latest_label) if latest_label else None,
     )
 

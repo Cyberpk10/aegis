@@ -192,6 +192,10 @@ class Case(Base):
     framework_mappings: Mapped[dict] = mapped_column(_JSONVariant, nullable=False, default=dict)
     analyst_narrative: Mapped[str | None] = mapped_column(Text, nullable=True)
     analyst_model: Mapped[str | None] = mapped_column(String, nullable=True)
+    # M3 — optional ML classifier signal, mirrors analyst_narrative/analyst_model: nullable,
+    # populated only when ENABLE_ML_CLASSIFIER was on and inference succeeded for this case.
+    ml_probability: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ml_model_version: Mapped[str | None] = mapped_column(String, nullable=True)
     raw_email_path: Mapped[str | None] = mapped_column(String, nullable=True)
     # sha256 hex of the final (post-unwrap) raw email bytes — only ever set by the inbound
     # webhook (M8 Stage 3), used to dedupe a provider retry or a duplicate forward against
