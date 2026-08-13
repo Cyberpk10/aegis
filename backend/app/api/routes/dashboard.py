@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
+from app.core.time import to_naive_utc
 from app.dashboard.aggregation import (
     CaseRow,
     LabelRow,
@@ -57,7 +58,11 @@ def _resolve_period(
 def _to_case_row(case: Case) -> CaseRow:
     return CaseRow(
         id=str(case.id),
-        created_at=case.created_at,
+        # Postgres (production) returns an aware datetime for a DateTime(timezone=True)
+        # column; SQLite (tests) returns naive. kris() subtracts this from a naive
+        # datetime.utcnow(), which raises TypeError if the two sides disagree — normalize
+        # here so both dialects behave the same.
+        created_at=to_naive_utc(case.created_at),
         verdict=case.verdict,
         indicators=case.indicators,
         framework_mappings=case.framework_mappings,

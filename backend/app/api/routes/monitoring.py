@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.core.config import settings
+from app.core.time import to_naive_utc
 from app.db.models import Case, Incident, User
 from app.db.session import get_db
 from app.mapping import framework_mapper
@@ -57,8 +58,15 @@ def _load_evidence(
         )
         .all()
     )
+    # Postgres (production) returns an aware datetime for a DateTime(timezone=True) column;
+    # SQLite (tests) returns naive. control_monitor's freshness math subtracts this from a
+    # naive datetime.utcnow(), which raises TypeError if the two sides disagree — normalize
+    # here so both dialects behave the same (see app.core.time).
     return [
-        EvidenceRow(occurred_at=row.created_at, framework_mappings=row.framework_mappings or {})
+        EvidenceRow(
+            occurred_at=to_naive_utc(row.created_at),
+            framework_mappings=row.framework_mappings or {},
+        )
         for row in (*cases, *incidents)
     ]
 
@@ -73,7 +81,7 @@ def _load_case_indicator_rows(
     )
     return [
         CaseIndicatorRow(
-            created_at=row.created_at,
+            created_at=to_naive_utc(row.created_at),
             indicator_ids=[i.get("id") for i in (row.indicators or [])],
         )
         for row in rows
