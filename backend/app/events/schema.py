@@ -47,4 +47,11 @@ class ActivityEvent(BaseModel):
 
 
 class EventBatchRequest(BaseModel):
-    events: list[ActivityEvent]
+    # Capped (security review, M8 Stage 4): POST /api/events is authenticated but not
+    # rate-limited (see app.auth.rate_limit — only login-adjacent and the inbound webhook
+    # are), and every event in a batch triggers synchronous, in-request work (persist +
+    # per-actor app.detections.engine.run_detections + a baseline update) with no batch-size
+    # limit of its own. An unbounded list here let any authenticated account tie up a worker
+    # for the duration of one oversized request. 1000 is generous for a real telemetry batch
+    # while bounding worst-case per-request cost.
+    events: list[ActivityEvent] = Field(max_length=1000)

@@ -53,6 +53,13 @@ class Settings:
         or ["http://localhost:5173", "http://127.0.0.1:5173"]
     )
     max_upload_bytes: int = 10 * 1024 * 1024  # 10 MiB
+    # Security review (M8 Stage 4): a hard ceiling on ANY request body, enforced from the
+    # declared Content-Length before Starlette/FastAPI reads a single byte of it (see
+    # app.main's MaxBodySizeMiddleware) — every route below this already re-checks its own,
+    # tighter limit (e.g. max_upload_bytes) AFTER reading the body, which is too late to stop
+    # an oversized request from being fully buffered/spooled first. Generous headroom over
+    # max_upload_bytes for multipart/JSON framing overhead, not meant to be tuned per-route.
+    max_request_body_bytes: int = 20 * 1024 * 1024  # 20 MiB
 
     # LLM reasoning layer (M2): off by default so the app and test suite stay
     # fully offline and deterministic unless explicitly opted in.

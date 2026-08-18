@@ -185,7 +185,7 @@ class CaseListResponse(BaseModel):
 
 class LabelRequest(BaseModel):
     analyst_verdict: Verdict
-    note: str | None = None
+    note: str | None = Field(default=None, max_length=5000)
 
 
 class LabelResponse(BaseModel):
@@ -408,7 +408,10 @@ class TargetsListResponse(BaseModel):
 
 
 class CopilotQueryRequest(BaseModel):
-    question: str
+    # app.copilot.llm truncates to 500 chars before ever building a prompt; capping here
+    # too means an oversized question is rejected with a 422 up front rather than fully
+    # parsed/validated first and silently truncated later.
+    question: str = Field(min_length=1, max_length=2000)
 
 
 class CopilotTemplateUsed(BaseModel):

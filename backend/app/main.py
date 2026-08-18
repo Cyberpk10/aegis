@@ -32,6 +32,7 @@ from app.api.routes.remediation import incidents_router as remediation_incidents
 from app.api.routes.remediation import targets_router as targets_router
 from app.api.routes.risk import router as risk_router
 from app.auth.rate_limit import limiter
+from app.core.body_limit import MaxBodySizeMiddleware
 from app.core.config import settings
 from app.db.session import Base, engine, get_db
 from app.storage.raw_email_store import purge_expired
@@ -81,6 +82,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Security review (M8 Stage 4) — rejects an oversized request from its declared
+# Content-Length before any route reads the body. See app.core.body_limit.
+app.add_middleware(MaxBodySizeMiddleware, max_bytes=settings.max_request_body_bytes)
 
 app.include_router(auth_router)
 app.include_router(analyze_router)
