@@ -28,6 +28,7 @@ from app.auth.security import (
     verify_password,
 )
 from app.core.config import settings
+from app.core.time import to_naive_utc
 from app.db.models import Account, Invite, PasswordResetToken, RefreshToken, User
 from app.db.session import get_db
 from app.models.schemas import (
@@ -190,7 +191,11 @@ async def refresh(body: RefreshRequest, db: Session = Depends(get_db)) -> TokenR
         db.commit()
         raise HTTPException(status_code=401, detail="Invalid refresh token.")
 
-    if row.expires_at < datetime.utcnow():
+    # Postgres (production) returns an aware datetime for a DateTime(timezone=True) column;
+    # SQLite (tests) returns naive. Comparing straight against a naive datetime.utcnow()
+    # raises TypeError the moment this is aware — normalize first (see app.core.time and
+    # the identical fix already applied to dashboard.py/monitoring.py).
+    if to_naive_utc(row.expires_at) < datetime.utcnow():
         raise HTTPException(status_code=401, detail="Refresh token expired.")
 
     user = db.get(User, row.user_id)
@@ -261,7 +266,12 @@ async def accept_invite(
     request: Request, body: InviteAcceptRequest, db: Session = Depends(get_db)
 ) -> TokenResponse:
     invite_row = db.query(Invite).filter(Invite.token_hash == hash_token(body.token)).first()
-    if invite_row is None or invite_row.accepted_at is not None or invite_row.expires_at < datetime.utcnow():
+    # See the identical normalization + comment on the /refresh route above.
+    if (
+        invite_row is None
+        or invite_row.accepted_at is not None
+        or to_naive_utc(invite_row.expires_at) < datetime.utcnow()
+    ):
         raise HTTPException(status_code=400, detail="This invite is invalid or has expired.")
 
     if db.query(User).filter(User.email == invite_row.email).first() is not None:
@@ -335,7 +345,12 @@ async def confirm_password_reset(body: PasswordResetConfirmRequest, db: Session 
         .filter(PasswordResetToken.token_hash == hash_token(body.token))
         .first()
     )
-    if token_row is None or token_row.used_at is not None or token_row.expires_at < datetime.utcnow():
+    # See the identical normalization + comment on the /refresh route above.
+    if (
+        token_row is None
+        or token_row.used_at is not None
+        or to_naive_utc(token_row.expires_at) < datetime.utcnow()
+    ):
         raise HTTPException(status_code=400, detail="This reset link is invalid or has expired.")
 
     user = db.get(User, token_row.user_id)
